@@ -1,0 +1,190 @@
+{
+  "info": {
+    "name": "Cobolt Risk Engine",
+    "description": "Real-time AML transaction risk assessment API.\n\nBase URL: `{{base_url}}/api`\n\nAuth: All `/v1/` routes require `Authorization: Bearer {{api_key}}` header.\n\nTransaction types:\n- `DEPOSIT` — fiat deposit, no chain or toWalletId needed\n- `BUY_CRYPTO` — requires chain + toWalletId\n- `WITHDRAW_CRYPTO` — requires chain + toWalletId\n\n`counterpartyRef` is optional on all types.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "sk-test-api-key-change-in-production",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /api/health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Health check. No auth required."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Risk Assessment",
+      "item": [
+        {
+          "name": "DEPOSIT — Fiat Deposit",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userRef\": \"usr_demo_001\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 500000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"DEPOSIT\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/risk/assess",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "risk", "assess"]
+            },
+            "description": "Fiat deposit. Rules: VELOCITY_SPIKE, HIGH_FREQUENCY, SIZE_EXCEED, SANCTIONED_WALLET, CROSS_BORDER_SURGE, WALLET_CLUSTER."
+          }
+        },
+        {
+          "name": "BUY_CRYPTO — Buy Crypto",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userRef\": \"usr_crypto_001\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 15000000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"BUY_CRYPTO\",\n  \"chain\": \"ETH\",\n  \"toWalletId\": \"0x8fC9e7c2A5bD4f6E1a3C9b8D7e5F2a0c6B4d8E1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/risk/assess",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "risk", "assess"]
+            },
+            "description": "Buy crypto with fiat. Requires chain + toWalletId. Rules: VELOCITY_SPIKE, HIGH_FREQUENCY, SIZE_EXCEED, SANCTIONED_WALLET, WALLET_CLUSTER, MARKET_EVENT."
+          }
+        },
+        {
+          "name": "WITHDRAW_CRYPTO — Crypto Withdrawal",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userRef\": \"usr_crypto_001\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 30000000,\n  \"currency\": \"ETH\",\n  \"transactionType\": \"WITHDRAW_CRYPTO\",\n  \"chain\": \"ETH\",\n  \"toWalletId\": \"0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B\",\n  \"counterpartyRef\": \"0x95222290DD7278Aa3D3893899b6F8f3D1F8bD4cB\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/risk/assess",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "risk", "assess"]
+            },
+            "description": "Crypto withdrawal to external wallet. Requires chain + toWalletId. counterpartyRef optional. Rules: VELOCITY_SPIKE, HIGH_FREQUENCY, SIZE_EXCEED, SANCTIONED_WALLET, WALLET_CLUSTER."
+          }
+        },
+        {
+          "name": "BUY_CRYPTO — Large Amount (triggers VELOCITY_SPIKE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userRef\": \"usr_large_001\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 30000000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"BUY_CRYPTO\",\n  \"chain\": \"ETH\",\n  \"toWalletId\": \"0x8fC9e7c2A5bD4f6E1a3C9b8D7e5F2a0c6B4d8E1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/risk/assess",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "risk", "assess"]
+            },
+            "description": "EUR 300,000 — exceeds EUR 250,000 absolute threshold. Expect VELOCITY_SPIKE to trigger (HIGH, 25 pts)."
+          }
+        },
+        {
+          "name": "Validation Error — Missing Crypto Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userRef\": \"usr_test\",\n  \"walletId\": \"0xtest\",\n  \"amount\": 1000,\n  \"currency\": \"BTC\",\n  \"transactionType\": \"BUY_CRYPTO\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/risk/assess",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "risk", "assess"]
+            },
+            "description": "BUY_CRYPTO without chain or toWalletId — expect 400 Validation failed."
+          }
+        },
+        {
+          "name": "Validation Error — Invalid Transaction Type",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userRef\": \"usr_test\",\n  \"walletId\": \"0xtest\",\n  \"amount\": 1000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"TRANSFER\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/risk/assess",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "risk", "assess"]
+            },
+            "description": "TRANSFER is not a valid transactionType — expect 400. Valid values: DEPOSIT, BUY_CRYPTO, WITHDRAW_CRYPTO."
+          }
+        },
+        {
+          "name": "Auth Error — Missing API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userRef\": \"usr_test\",\n  \"walletId\": \"0xtest\",\n  \"amount\": 1000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"DEPOSIT\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/risk/assess",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "risk", "assess"]
+            },
+            "description": "No Authorization header — expect 401 Missing API key."
+          }
+        }
+      ]
+    }
+  ]
+}

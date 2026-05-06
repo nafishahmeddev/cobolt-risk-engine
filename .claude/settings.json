@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/ahmed/Documents/Projects/Cobolt/cobolt-risk-engine status --short)",
+      "Bash(npx tsc *)",
+      "WebSearch",
+      "WebFetch(domain:docs.amlbot.com)",
+      "WebFetch(domain:kyc-docs.amlbot.com)",
+      "WebFetch(domain:www.postman.com)"
+    ]
+  }
+}
