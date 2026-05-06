@@ -7,6 +7,7 @@ const envSchema = z.object({
   HTTP_HOST: z.string().min(1),
 
   SLACK_BOT_TOKEN: z.string().min(1),
+  SLACK_RISK_CHANNEL_ID: z.string().min(1),
 
   EMAIL_API_URL: z.url(),
   EMAIL_API_KEY: z.string().min(1),

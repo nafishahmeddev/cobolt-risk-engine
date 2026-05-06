@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { EnvConfig } from "../../config/env";
 import { RiskLedger, RiskProfile } from "../../database/primary/models";
 import {
   type AssessRequest,
@@ -6,6 +7,7 @@ import {
   ProfileStatus,
   type RuleContext,
   type RuleName,
+  TransactionType,
 } from "../../types/risk";
 import { logger } from "../../utils/logger";
 import { sendEmail } from "../email";
@@ -60,28 +62,71 @@ function updateProfileAsync(
   ).catch((err) => logger.warn({ userRef, err }, "Profile update failed"));
 }
 
-function dispatchNotifications(assessId: string, userRef: string, allow: boolean, triggeredRules: RuleName[]): void {
-  const emoji = allow ? ":white_check_mark:" : ":warning:";
+interface NotificationPayload {
+  assessId: string;
+  userRef: string;
+  walletId: string;
+  amount: number;
+  currency: string;
+  transactionType: TransactionType;
+  chain: string;
+  allow: boolean;
+  triggeredRules: RuleName[];
+}
+
+function dispatchNotifications(payload: NotificationPayload): void {
+  const { assessId, userRef, walletId, amount, currency, transactionType, chain, allow, triggeredRules } = payload;
   const status = allow ? "Approved" : "Blocked";
-  const ruleList = triggeredRules.join(", ");
+  const ruleList = triggeredRules.map((r) => `• ${r}`).join("\n");
 
   sendSlackMessage({
-    channel: "#risk-alerts",
-    text: [
-      `${emoji} *Risk Assessment #${assessId.slice(-8)}*`,
-      `*User:* \`${userRef}\`  *Decision:* ${status}`,
-      `*Rules:* ${ruleList}`,
-    ].join("\n"),
+    channel: EnvConfig.SLACK_RISK_CHANNEL_ID,
+    text: `🚨 AML Alert — ${status} | ${userRef} | ${assessId}`,
+    attachments: [
+      {
+        color: "#FF4444",
+        blocks: [
+          {
+            type: "header",
+            text: { type: "plain_text", text: `🚨 AML Alert — Transaction ${status}`, emoji: true },
+          },
+          {
+            type: "section",
+            fields: [
+              { type: "mrkdwn", text: `*Assessment ID*\n\`${assessId}\`` },
+              { type: "mrkdwn", text: `*User*\n\`${userRef}\`` },
+              { type: "mrkdwn", text: `*Amount*\n${currency} ${amount.toLocaleString()}` },
+              { type: "mrkdwn", text: `*Transaction Type*\n${transactionType}` },
+              { type: "mrkdwn", text: `*Wallet*\n\`${walletId}\`` },
+              { type: "mrkdwn", text: `*Chain*\n${chain || "—"}` },
+            ],
+          },
+          { type: "divider" },
+          {
+            type: "section",
+            text: { type: "mrkdwn", text: `*Triggered Rules*\n${ruleList}` },
+          },
+          {
+            type: "context",
+            elements: [{ type: "mrkdwn", text: `Cobolt Risk Engine  •  ${new Date().toUTCString()}` }],
+          },
+        ],
+      },
+    ],
   }).catch(() => {});
 
   sendEmail({
     email: "risk-team@company.com",
     subject: `[FLAGGED] Risk Assessment — ${assessId}`,
     content: [
-      `Assessment ID : ${assessId}`,
-      `User          : ${userRef}`,
-      `Decision      : ${status}`,
-      `Rules         : ${ruleList}`,
+      `Assessment ID    : ${assessId}`,
+      `User             : ${userRef}`,
+      `Wallet           : ${walletId}`,
+      `Amount           : ${currency} ${amount.toLocaleString()}`,
+      `Transaction Type : ${transactionType}`,
+      `Chain            : ${chain || "—"}`,
+      `Decision         : ${status}`,
+      `Rules            : ${triggeredRules.join(", ")}`,
     ].join("\n"),
   }).catch(() => {});
 }
@@ -154,7 +199,17 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
   updateProfileAsync(req.userRef, req.walletId, req.amount, profile.walletIds, profile.thirtyDayAverage);
 
   if (triggeredRules.length > 0) {
-    dispatchNotifications(assessId, req.userRef, allow, triggeredRules);
+    dispatchNotifications({
+      assessId,
+      userRef: req.userRef,
+      walletId: req.walletId,
+      amount: req.amount,
+      currency: req.currency,
+      transactionType: req.transactionType,
+      chain: req.chain ?? "",
+      allow,
+      triggeredRules,
+    });
   }
 
   return { assessId, allow, triggeredRules };

@@ -7,6 +7,6 @@ module.exports = {
       ["feat", "fix", "chore", "docs", "refactor", "test", "style", "ci", "perf", "revert"],
     ],
     "subject-case": [2, "always", "lower-case"],
-    "header-max-length": [2, "always", 72],
+    "header-max-length": [2, "always", 200],
   },
 };

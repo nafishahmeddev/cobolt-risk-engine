@@ -1,4 +1,5 @@
 import type { KnownBlock } from "@slack/types/dist/block-kit/blocks";
+import type { MessageAttachment } from "@slack/types/dist/message-attachments";
 import { WebClient } from "@slack/web-api";
 import type { ChatPostMessageArguments } from "@slack/web-api/dist/types/request/chat";
 import { EnvConfig } from "../config/env";
@@ -9,6 +10,7 @@ type SlackMessage = {
   channel: string;
   text: string;
   blocks?: KnownBlock[];
+  attachments?: MessageAttachment[];
 };
 
 let client: WebClient | null = null;
@@ -31,6 +33,7 @@ export async function sendSlackMessage(message: SlackMessage): Promise<void> {
       channel: message.channel,
       text: message.text,
       ...(message.blocks && { blocks: message.blocks }),
+      ...(message.attachments && { attachments: message.attachments }),
     };
 
     await getClient().chat.postMessage(payload);
