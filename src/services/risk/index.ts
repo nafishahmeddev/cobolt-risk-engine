@@ -7,7 +7,7 @@ import {
   ProfileStatus,
   type RuleContext,
   type RuleName,
-  TransactionType,
+  type TransactionType,
 } from "../../types/risk";
 import { logger } from "../../utils/logger";
 import { sendEmail } from "../email";
