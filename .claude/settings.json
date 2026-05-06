@@ -6,7 +6,8 @@
       "WebSearch",
       "WebFetch(domain:docs.amlbot.com)",
       "WebFetch(domain:kyc-docs.amlbot.com)",
-      "WebFetch(domain:www.postman.com)"
+      "WebFetch(domain:www.postman.com)",
+      "Bash(git -C /Users/ahmed/Documents/Projects/Cobolt/cobolt-risk-engine commit -m \"feat: initialize cobolt risk engine with modular aml rule validation\")"
     ]
   }
 }

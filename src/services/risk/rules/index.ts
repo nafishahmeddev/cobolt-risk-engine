@@ -14,13 +14,13 @@ type RuleFn = (ctx: RuleContext) => Promise<RuleResult>;
  * Adding a new rule: add the function here.
  */
 const RULE_MAP: Record<RuleName, RuleFn> = {
-  [RuleName.VELOCITY_SPIKE]:     velocitySpike,
-  [RuleName.HIGH_FREQUENCY]:     highFrequency,
-  [RuleName.SIZE_EXCEED]:        sizeExceed,
-  [RuleName.SANCTIONED_WALLET]:  sanctionedWallet,
+  [RuleName.VELOCITY_SPIKE]: velocitySpike,
+  [RuleName.HIGH_FREQUENCY]: highFrequency,
+  [RuleName.SIZE_EXCEED]: sizeExceed,
+  [RuleName.SANCTIONED_WALLET]: sanctionedWallet,
   [RuleName.CROSS_BORDER_SURGE]: crossBorderSurge,
-  [RuleName.WALLET_CLUSTER]:     walletCluster,
-  [RuleName.MARKET_EVENT]:       marketEvent,
+  [RuleName.WALLET_CLUSTER]: walletCluster,
+  [RuleName.MARKET_EVENT]: marketEvent,
 };
 
 /**

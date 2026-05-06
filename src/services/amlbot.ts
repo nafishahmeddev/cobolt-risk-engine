@@ -44,7 +44,10 @@ export async function screenAddress(address: string, coin: string): Promise<AmlB
 
   const data = (await response.json()) as AmlBotResponse;
 
-  logger.debug({ requestId, address, coin, riskScore: data.risk_score, sanctioned: data.sanctioned }, "AMLBot screen complete");
+  logger.debug(
+    { requestId, address, coin, riskScore: data.risk_score, sanctioned: data.sanctioned },
+    "AMLBot screen complete",
+  );
 
   return {
     flagged: data.sanctioned || data.risk_score >= 75,

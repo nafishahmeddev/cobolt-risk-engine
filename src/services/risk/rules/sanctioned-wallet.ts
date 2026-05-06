@@ -1,5 +1,5 @@
-import { screenAddress } from "../../amlbot";
 import { AlertLevel, type RuleContext, RuleName, type RuleResult } from "../../../types/risk";
+import { screenAddress } from "../../amlbot";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,9 +19,7 @@ function buildCandidates(ctx: RuleContext): Candidate[] {
 }
 
 function flagDetail(candidate: Candidate, sanctioned: boolean, score: number): string {
-  const reason = sanctioned
-    ? "matched sanctions list (OFAC/EU/UN)"
-    : `risk score ${score}/100 exceeds threshold`;
+  const reason = sanctioned ? "matched sanctions list (OFAC/EU/UN)" : `risk score ${score}/100 exceeds threshold`;
   return `${candidate.label} address ${candidate.address} flagged — ${reason}`;
 }
 

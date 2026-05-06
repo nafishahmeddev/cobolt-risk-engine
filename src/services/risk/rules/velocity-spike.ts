@@ -1,6 +1,6 @@
 import { AlertLevel, type RuleContext, RuleName, type RuleResult } from "../../../types/risk";
 
-const THIRTY_DAY_MULTIPLIER = 3;      // 300% of 30-day average
+const THIRTY_DAY_MULTIPLIER = 3; // 300% of 30-day average
 const ABSOLUTE_THRESHOLD = 25_000_000; // EUR 250,000 in minor units
 
 /**

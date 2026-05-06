@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { RiskLedger, RiskProfile } from "../../database/primary/models";
-import { sendEmail } from "../email";
-import { sendSlackMessage } from "../slack";
 import {
   type AssessRequest,
   type AssessResponse,
   ProfileStatus,
-  type RuleName,
   type RuleContext,
+  type RuleName,
 } from "../../types/risk";
 import { logger } from "../../utils/logger";
+import { sendEmail } from "../email";
+import { sendSlackMessage } from "../slack";
 import { evaluateAllRules } from "./rules";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -47,9 +47,7 @@ function updateProfileAsync(
   existingWalletIds: string[],
   oldAverage: number,
 ): void {
-  const walletIds = existingWalletIds.includes(walletId)
-    ? existingWalletIds
-    : [...existingWalletIds, walletId];
+  const walletIds = existingWalletIds.includes(walletId) ? existingWalletIds : [...existingWalletIds, walletId];
 
   const newAverage = oldAverage === 0 ? amount : Math.round(oldAverage * 0.97 + amount * 0.03);
 
@@ -62,12 +60,7 @@ function updateProfileAsync(
   ).catch((err) => logger.warn({ userRef, err }, "Profile update failed"));
 }
 
-function dispatchNotifications(
-  assessId: string,
-  userRef: string,
-  allow: boolean,
-  triggeredRules: RuleName[],
-): void {
+function dispatchNotifications(assessId: string, userRef: string, allow: boolean, triggeredRules: RuleName[]): void {
   const emoji = allow ? ":white_check_mark:" : ":warning:";
   const status = allow ? "Approved" : "Blocked";
   const ruleList = triggeredRules.join(", ");

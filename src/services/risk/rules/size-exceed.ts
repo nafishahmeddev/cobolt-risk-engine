@@ -1,6 +1,6 @@
 import { AlertLevel, type RuleContext, RuleName, type RuleResult } from "../../../types/risk";
 
-const DECLARED_MULTIPLIER = 2;    // 200% of declared size
+const DECLARED_MULTIPLIER = 2; // 200% of declared size
 const NEW_ACCOUNT_DAYS = 30;
 const NEW_ACCOUNT_THRESHOLD = 10_000_000; // EUR 100,000 in minor units
 
@@ -21,7 +21,10 @@ export async function sizeExceed(ctx: RuleContext): Promise<RuleResult> {
     };
   }
 
-  if (ctx.profile.declaredTransactionSize > 0 && ctx.amount > ctx.profile.declaredTransactionSize * DECLARED_MULTIPLIER) {
+  if (
+    ctx.profile.declaredTransactionSize > 0 &&
+    ctx.amount > ctx.profile.declaredTransactionSize * DECLARED_MULTIPLIER
+  ) {
     return {
       rule: RuleName.SIZE_EXCEED,
       triggered: true,

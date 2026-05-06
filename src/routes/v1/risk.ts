@@ -37,11 +37,7 @@ const withdrawCryptoSchema = z.object({
   toWalletId: z.string().min(1),
 });
 
-const assessSchema = z.discriminatedUnion("transactionType", [
-  depositSchema,
-  buyCryptoSchema,
-  withdrawCryptoSchema,
-]);
+const assessSchema = z.discriminatedUnion("transactionType", [depositSchema, buyCryptoSchema, withdrawCryptoSchema]);
 
 riskRouter.post(
   "/assess",
