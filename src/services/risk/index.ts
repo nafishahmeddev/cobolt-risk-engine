@@ -113,7 +113,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => { });
+  }).catch(() => {});
 
   sendEmail({
     email: "risk-team@company.com",
@@ -128,7 +128,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${status}`,
       `Rules            : ${triggeredRules.join(", ")}`,
     ].join("\n"),
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 // ─── Pipeline ────────────────────────────────────────────────────────────────
