@@ -14,14 +14,12 @@ export const auth: MiddlewareHandler = async (c, next) => {
     return unauthorized(c, "Missing API key");
   }
 
-  const token = header.startsWith("Bearer ") ? header.slice(7) : header;
+  const apiKey = header.startsWith("Bearer ") ? header.slice(7) : header;
 
-  if (token !== EnvConfig.APP_API_KEY) {
+  if (apiKey !== EnvConfig.APP_API_KEY) {
     logger.warn({ requestId, path: c.req.path }, "Invalid API key");
     return unauthorized(c, "Invalid API key");
   }
-
-  c.set("userId", "api-client");
 
   await next();
 };

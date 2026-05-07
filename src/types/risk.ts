@@ -56,6 +56,20 @@ export enum RuleName {
 
 export const RULE_NAMES = Object.values(RuleName);
 
+/**
+ * Lifecycle status of a single risk assessment.
+ * - `success`: transaction approved — all checks passed.
+ * - `failed`: transaction blocked — one or more rules triggered.
+ * - `pending`: AMLBot check is asynchronous; final decision delivered via client callback.
+ */
+export enum AssessmentStatus {
+  SUCCESS = "success",
+  FAILED = "failed",
+  PENDING = "pending",
+}
+
+export const ASSESSMENT_STATUSES = Object.values(AssessmentStatus);
+
 /** Payload sent by the integrator to request a risk assessment. */
 export interface AssessRequest {
   /** Internal user identifier from the integrator's system. */
@@ -74,15 +88,26 @@ export interface AssessRequest {
   chain?: string;
   /** Destination wallet address. Required for BUY_CRYPTO and WITHDRAW_CRYPTO. */
   destinationWalletId?: string;
+  /** Webhook URL to POST the final decision to when AMLBot completes asynchronously. */
+  callbackUrl: string;
 }
 
-/** Result returned to the integrator after all applicable rules are evaluated. */
-export interface AssessResponse {
-  /** Unique identifier for this assessment record. */
+/**
+ * Result returned to the integrator after assessment completes.
+ * When `status` is `pending`, the final decision is delivered to `callbackUrl`.
+ */
+export type AssessResponse =
+  | { status: AssessmentStatus.SUCCESS; assessmentId: string; triggeredRules: RuleName[] }
+  | { status: AssessmentStatus.FAILED; assessmentId: string; triggeredRules: RuleName[] }
+  | { status: AssessmentStatus.PENDING; assessmentId: string };
+
+/**
+ * Payload POSTed to the integrator's `callbackUrl` when an async assessment finalises.
+ * Shape mirrors the sync `AssessResponse` without the `pending` variant.
+ */
+export interface AssessCallbackPayload {
   assessmentId: string;
-  /** Whether the transaction is approved. False if any rule triggered or profile is BLOCKED. */
-  allow: boolean;
-  /** Names of all rules that fired. Empty array means the transaction passed all checks. */
+  status: AssessmentStatus.SUCCESS | AssessmentStatus.FAILED;
   triggeredRules: RuleName[];
 }
 
@@ -96,10 +121,16 @@ export interface RuleResult {
   alertLevel: AlertLevel;
   /** Human-readable explanation of the rule outcome. Logged and stored for audit. */
   detail: string;
+  /** True when AMLBot has not yet returned a result — poller will resolve via recheck. */
+  pending?: boolean;
+  /** AMLBot request ID to poll when `pending` is true. */
+  amlbotRequestId?: string;
 }
 
 /** Shared input passed to every rule function. All optional request fields are normalised to "" by the orchestrator. */
 export interface RuleContext {
+  /** Unique assessment identifier. */
+  assessmentId: string;
   /** Internal user identifier. */
   userRef: string;
   /** Source wallet address or bank account identifier. */

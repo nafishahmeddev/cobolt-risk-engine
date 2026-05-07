@@ -20,10 +20,7 @@ export interface ErrorResponse {
 export type ApiResponse<T = unknown> = SuccessResponse<T> | ErrorResponse;
 
 export interface AppBindings {
-  Variables: {
-    userId?: string;
-  };
-  Bindings: Record<string, never>;
+  Variables: Record<string, never>;
 }
 
 export type HttpStatusCode = ContentfulStatusCode;

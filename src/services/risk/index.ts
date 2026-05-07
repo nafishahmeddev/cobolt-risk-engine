@@ -1,22 +1,28 @@
 import { randomUUID } from "node:crypto";
 import { EnvConfig } from "../../config/env";
-import { RiskLedger, RiskProfile } from "../../database/primary/models";
+import { RiskAssessment, RiskLedger, RiskProfile } from "../../database/primary/models";
+import type { IRiskAssessment, IRuleResultDoc } from "../../database/primary/models";
+import type { AmlBotScreenComplete } from "../amlbot";
 import {
+  AlertLevel,
+  type AssessCallbackPayload,
   type AssessRequest,
   type AssessResponse,
+  AssessmentStatus,
   ProfileStatus,
   type RuleContext,
-  type RuleName,
+  RuleName,
   type TransactionType,
 } from "../../types/risk";
 import { logger } from "../../utils/logger";
 import { sendEmail } from "../email";
 import { sendSlackMessage } from "../slack";
+import { sendAssessmentCallback } from "../callback";
 import { evaluateAllRules } from "./rules";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function generateAssessId(): string {
+function generateAssessmentId(): string {
   return `risk_${randomUUID().replace(/-/g, "").slice(0, 18)}`;
 }
 
@@ -50,7 +56,6 @@ function updateProfileAsync(
   oldAverage: number,
 ): void {
   const walletIds = existingWalletIds.includes(walletId) ? existingWalletIds : [...existingWalletIds, walletId];
-
   const newAverage = oldAverage === 0 ? amount : Math.round(oldAverage * 0.97 + amount * 0.03);
 
   RiskProfile.updateOne(
@@ -62,6 +67,36 @@ function updateProfileAsync(
   ).catch((err) => logger.warn({ userRef, err }, "Profile update failed"));
 }
 
+/**
+ * Write the immutable ledger record and remove the in-flight assessment.
+ * Called exactly once per assessment — ledger is never modified after this.
+ */
+async function commitToLedger(
+  assessment: IRiskAssessment,
+  ruleResults: IRuleResultDoc[],
+  triggeredRules: string[],
+  allow: boolean,
+): Promise<void> {
+  await RiskLedger.create({
+    assessmentId: assessment.assessmentId,
+    userRef: assessment.userRef,
+    walletId: assessment.walletId,
+    counterpartyId: assessment.counterpartyId,
+    chain: assessment.chain,
+    destinationWalletId: assessment.destinationWalletId,
+    amount: assessment.amount,
+    currency: assessment.currency,
+    transactionType: assessment.transactionType,
+    callbackUrl: assessment.callbackUrl,
+    allow,
+    triggeredRules,
+    ruleResults,
+    createdAt: assessment.createdAt,
+  });
+
+  await RiskAssessment.deleteOne({ assessmentId: assessment.assessmentId });
+}
+
 interface NotificationPayload {
   assessmentId: string;
   userRef: string;
@@ -71,25 +106,21 @@ interface NotificationPayload {
   transactionType: TransactionType;
   chain: string;
   allow: boolean;
-  triggeredRules: RuleName[];
+  triggeredRules: string[];
 }
 
 function dispatchNotifications(payload: NotificationPayload): void {
   const { assessmentId, userRef, walletId, amount, currency, transactionType, chain, allow, triggeredRules } = payload;
-  const status = allow ? "Approved" : "Blocked";
-  const ruleList = triggeredRules.map((r) => `• ${r}`).join("\n");
+  const label = allow ? "Approved" : "Blocked";
+  const ruleList = triggeredRules.length > 0 ? triggeredRules.map((r) => `• ${r}`).join("\n") : "• None";
 
   sendSlackMessage({
     channel: EnvConfig.SLACK_RISK_CHANNEL_ID,
-    text: `🚨 AML Alert — ${status} | ${userRef} | ${assessmentId}`,
+    text: `🚨 AML Alert — ${label} | ${userRef} | ${assessmentId}`,
     attachments: [
       {
         color: "#FF4444",
         blocks: [
-          // {
-          //   type: "header",
-          //   text: { type: "plain_text", text: `🚨 AML Alert — Transaction ${status}`, emoji: true },
-          // },
           {
             type: "section",
             fields: [
@@ -125,8 +156,8 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Amount           : ${currency} ${amount.toLocaleString()}`,
       `Transaction Type : ${transactionType}`,
       `Chain            : ${chain || "—"}`,
-      `Decision         : ${status}`,
-      `Rules            : ${triggeredRules.join(", ")}`,
+      `Decision         : ${label}`,
+      `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
   }).catch(() => {});
 }
@@ -134,22 +165,42 @@ function dispatchNotifications(payload: NotificationPayload): void {
 // ─── Pipeline ────────────────────────────────────────────────────────────────
 
 /**
- * Full assessment pipeline:
- * 1. Load or create risk profile
- * 2. Run all applicable AML rules in parallel
- * 3. Decide: block if any rule triggered or profile is BLOCKED
- * 4. Persist immutable ledger record
- * 5. Update profile rolling averages (async, non-blocking)
- * 6. Dispatch Slack + email alerts if a rule triggered
+ * Assessment pipeline:
+ * 1. Create in-flight record in risk_assessments (mutable)
+ * 2. Load or create risk profile
+ * 3. Run all applicable AML rules in parallel
+ * 4a. All sync → commit to risk_ledger (immutable) + delete assessment → return result
+ * 4b. AMLBot deferred → store requestId + partial results → return { status: "pending" }
+ *     Poller resolves via recheckAddress → finalizeAssessment
+ *
+ * Early-block: if any non-AMLBot rule fires, commit immediately without waiting for AMLBot.
  */
 export async function assessTransaction(req: AssessRequest): Promise<AssessResponse> {
-  const assessmentId = generateAssessId();
+  const assessmentId = generateAssessmentId();
+  const requestedAt = new Date();
 
   logger.info({ assessmentId, userRef: req.userRef, transactionType: req.transactionType }, "Assessment started");
+
+  const assessment = await RiskAssessment.create({
+    assessmentId,
+    userRef: req.userRef,
+    walletId: req.walletId,
+    counterpartyId: req.counterpartyId ?? "",
+    chain: req.chain ?? "",
+    destinationWalletId: req.destinationWalletId ?? "",
+    amount: req.amount,
+    currency: req.currency,
+    transactionType: req.transactionType,
+    callbackUrl: req.callbackUrl,
+    amlbotRequestId: "",
+    completedRuleResults: [],
+    createdAt: requestedAt,
+  });
 
   const profile = await fetchOrCreateProfile(req.userRef, req.walletId);
 
   const ctx: RuleContext = {
+    assessmentId,
     userRef: req.userRef,
     walletId: req.walletId,
     amount: req.amount,
@@ -173,44 +224,114 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
   };
 
   const ruleResults = await evaluateAllRules(ctx);
-  const triggeredRules = ruleResults.filter((r) => r.triggered).map((r) => r.rule);
 
   const isProfileBlocked = ctx.profile.status === ProfileStatus.BLOCKED;
-  const allow = triggeredRules.length === 0 && !isProfileBlocked;
+  const completedResults = ruleResults.filter((r) => !r.pending) as IRuleResultDoc[];
+  const triggeredCompleted = completedResults.filter((r) => r.triggered).map((r) => r.rule);
+  const pendingRule = ruleResults.find((r) => r.pending);
 
-  logger.info({ assessmentId, allow, triggeredRules }, "Assessment complete");
-
-  await RiskLedger.create({
-    assessmentId,
-    userRef: req.userRef,
-    walletId: req.walletId,
-    counterpartyId: req.counterpartyId ?? "",
-    chain: req.chain ?? "",
-    destinationWalletId: req.destinationWalletId ?? "",
-    amount: req.amount,
-    currency: req.currency,
-    transactionType: req.transactionType,
-    allow,
-    triggeredRules,
-    ruleResults,
-    createdAt: new Date(),
-  });
-
-  updateProfileAsync(req.userRef, req.walletId, req.amount, profile.walletIds, profile.thirtyDayAverage);
-
-  if (triggeredRules.length > 0) {
+  // Early block: non-AMLBot rule fired or profile blocked — commit immediately.
+  if (triggeredCompleted.length > 0 || isProfileBlocked) {
+    await commitToLedger(assessment.toObject(), completedResults, triggeredCompleted, false);
+    updateProfileAsync(req.userRef, req.walletId, req.amount, profile.walletIds, profile.thirtyDayAverage);
     dispatchNotifications({
       assessmentId,
       userRef: req.userRef,
       walletId: req.walletId,
       amount: req.amount,
       currency: req.currency,
-      transactionType: req.transactionType,
+      transactionType: req.transactionType as TransactionType,
+      chain: req.chain ?? "",
+      allow: false,
+      triggeredRules: triggeredCompleted,
+    });
+    logger.info({ assessmentId, triggeredRules: triggeredCompleted }, "Assessment failed — early block");
+    return { status: AssessmentStatus.FAILED, assessmentId, triggeredRules: triggeredCompleted as RuleName[] };
+  }
+
+  // AMLBot deferred — store requestId and partial results; poller will resolve.
+  if (pendingRule) {
+    await RiskAssessment.updateOne(
+      { assessmentId },
+      { $set: { amlbotRequestId: pendingRule.amlbotRequestId ?? "", completedRuleResults: completedResults } },
+    );
+    logger.info({ assessmentId, amlbotRequestId: pendingRule.amlbotRequestId }, "Assessment pending — AMLBot deferred");
+    return { status: AssessmentStatus.PENDING, assessmentId };
+  }
+
+  // All rules completed synchronously.
+  const triggeredRules = completedResults.filter((r) => r.triggered).map((r) => r.rule);
+  const allow = triggeredRules.length === 0 && !isProfileBlocked;
+
+  await commitToLedger(assessment.toObject(), completedResults, triggeredRules, allow);
+  updateProfileAsync(req.userRef, req.walletId, req.amount, profile.walletIds, profile.thirtyDayAverage);
+
+  if (!allow) {
+    dispatchNotifications({
+      assessmentId,
+      userRef: req.userRef,
+      walletId: req.walletId,
+      amount: req.amount,
+      currency: req.currency,
+      transactionType: req.transactionType as TransactionType,
       chain: req.chain ?? "",
       allow,
       triggeredRules,
     });
   }
 
-  return { assessmentId, allow, triggeredRules };
+  const finalStatus = allow ? AssessmentStatus.SUCCESS : AssessmentStatus.FAILED;
+  logger.info({ assessmentId, finalStatus, triggeredRules }, "Assessment complete");
+  return { status: finalStatus, assessmentId, triggeredRules: triggeredRules as RuleName[] };
+}
+
+/**
+ * Finalise a deferred assessment once the AMLBot poller has a complete result.
+ * Appends the AMLBot rule outcome to the stored partial results, commits to ledger,
+ * and fires the integrator's callback URL.
+ * Called exclusively by the AMLBot poller — not exposed via HTTP.
+ */
+export async function finalizeAssessment(
+  assessment: IRiskAssessment,
+  amlResult: AmlBotScreenComplete,
+): Promise<void> {
+  const amlRuleResult: IRuleResultDoc = {
+    rule: RuleName.SANCTIONED_WALLET,
+    triggered: amlResult.flagged,
+    alertLevel: AlertLevel.CRITICAL,
+    detail: amlResult.flagged
+      ? `Address flagged via AMLBot — ${amlResult.sanctioned ? "sanctions match (OFAC/EU/UN)" : `risk score ${amlResult.riskScore}/100 exceeds threshold`}`
+      : `Address clean via AMLBot (risk score ${amlResult.riskScore}/100)`,
+  };
+
+  const allResults: IRuleResultDoc[] = [...assessment.completedRuleResults, amlRuleResult];
+  const triggeredRules = allResults.filter((r) => r.triggered).map((r) => r.rule);
+  const allow = triggeredRules.length === 0;
+  const finalStatus = allow ? AssessmentStatus.SUCCESS : AssessmentStatus.FAILED;
+
+  await commitToLedger(assessment, allResults, triggeredRules, allow);
+
+  logger.info({ assessmentId: assessment.assessmentId, finalStatus, triggeredRules }, "Assessment finalised by poller");
+
+  if (!allow) {
+    dispatchNotifications({
+      assessmentId: assessment.assessmentId,
+      userRef: assessment.userRef,
+      walletId: assessment.walletId,
+      amount: assessment.amount,
+      currency: assessment.currency,
+      transactionType: assessment.transactionType as TransactionType,
+      chain: assessment.chain,
+      allow,
+      triggeredRules,
+    });
+  }
+
+  const callbackPayload: AssessCallbackPayload = {
+    assessmentId: assessment.assessmentId,
+    status: finalStatus,
+    triggeredRules: triggeredRules as RuleName[],
+  };
+
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
 }

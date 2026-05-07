@@ -2,7 +2,20 @@ import { type Model, Schema } from "mongoose";
 import { AlertLevel } from "../../../types/risk";
 import { conn } from "../connection";
 
+export interface IRuleResultDoc {
+  rule: string;
+  triggered: boolean;
+  alertLevel: AlertLevel;
+  detail: string;
+}
+
+/**
+ * Immutable audit record written once when an assessment finalises.
+ * Never updated after creation — presence here = assessment complete.
+ * `allow` captures the final decision; `triggeredRules` lists what fired.
+ */
 export interface IRiskLedger {
+  /** Unique assessment identifier. */
   assessmentId: string;
   userRef: string;
   walletId: string;
@@ -12,16 +25,27 @@ export interface IRiskLedger {
   amount: number;
   currency: string;
   transactionType: string;
+  /** Integrator's webhook URL — retained for audit trail. */
+  callbackUrl: string;
+  /** True if the transaction was approved; false if blocked. */
   allow: boolean;
+  /** Names of all rules that fired. Empty = transaction passed all checks. */
   triggeredRules: string[];
-  ruleResults: {
-    rule: string;
-    triggered: boolean;
-    alertLevel: AlertLevel;
-    detail: string;
-  }[];
+  /** Full rule-by-rule breakdown. Bounded to ≤7 items (one per rule). */
+  ruleResults: IRuleResultDoc[];
+  /** When the original assess request was received (copied from pending record). */
   createdAt: Date;
 }
+
+const ruleResultSchema = new Schema<IRuleResultDoc>(
+  {
+    rule: { type: String, required: true },
+    triggered: { type: Boolean, required: true },
+    alertLevel: { type: String, enum: Object.values(AlertLevel), required: true },
+    detail: { type: String, default: "" },
+  },
+  { _id: false },
+);
 
 const schema = new Schema<IRiskLedger>(
   {
@@ -34,19 +58,13 @@ const schema = new Schema<IRiskLedger>(
     amount: { type: Number, required: true },
     currency: { type: String, required: true },
     transactionType: { type: String, required: true },
+    callbackUrl: { type: String, required: true },
     allow: { type: Boolean, required: true },
     triggeredRules: { type: [String], default: [] },
-    ruleResults: [
-      {
-        rule: { type: String, required: true },
-        triggered: { type: Boolean, required: true },
-        alertLevel: { type: String, enum: Object.values(AlertLevel), required: true },
-        detail: { type: String, default: "" },
-      },
-    ],
+    ruleResults: { type: [ruleResultSchema], default: [] },
     createdAt: { type: Date, required: true, index: true },
   },
-  { collection: "risk_ledger", timestamps: false },
+  { collection: "risk_ledger", timestamps: false, versionKey: false },
 );
 
 export const RiskLedger: Model<IRiskLedger> = conn.model<IRiskLedger>("RiskLedger", schema);
