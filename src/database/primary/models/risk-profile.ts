@@ -10,7 +10,7 @@ const schema = new Schema<IRiskProfile>(
     walletIds: { type: [String], default: [] },
     status: { type: String, enum: Object.values(ProfileStatus), default: ProfileStatus.ACTIVE },
     onboardedAt: { type: Date, required: true },
-    declaredTransactionSize: { type: Number, default: 0 },
+    declaredMonthlyVolume: { type: Number, default: 0 },
     thirtyDayAverage: { type: Number, default: 0 },
     crossBorderBaseline: { type: Number, default: 0 },
     crossBorderCount24h: { type: Number, default: 0 },

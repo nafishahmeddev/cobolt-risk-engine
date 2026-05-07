@@ -15,7 +15,7 @@ const commonFields = {
   walletId: z.string().min(1),
   amount: z.number().int().positive(),
   currency: z.string().length(3),
-  counterpartyRef: z.string().min(1).optional(),
+  counterpartyId: z.string().min(1).optional(),
 } as const;
 
 const depositSchema = z.object({
@@ -27,14 +27,14 @@ const buyCryptoSchema = z.object({
   ...commonFields,
   transactionType: z.literal(TransactionType.BUY_CRYPTO),
   chain: z.string().min(1),
-  toWalletId: z.string().min(1),
+  destinationWalletId: z.string().min(1),
 });
 
 const withdrawCryptoSchema = z.object({
   ...commonFields,
   transactionType: z.literal(TransactionType.WITHDRAW_CRYPTO),
   chain: z.string().min(1),
-  toWalletId: z.string().min(1),
+  destinationWalletId: z.string().min(1),
 });
 
 const assessSchema = z.discriminatedUnion("transactionType", [depositSchema, buyCryptoSchema, withdrawCryptoSchema]);

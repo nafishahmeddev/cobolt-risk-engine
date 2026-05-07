@@ -1,35 +1,43 @@
 import { AlertLevel, type RuleContext, RuleName, type RuleResult } from "../../../types/risk";
 
-const DECLARED_MULTIPLIER = 2; // 200% of declared size
-const NEW_ACCOUNT_DAYS = 30;
-const NEW_ACCOUNT_THRESHOLD = 10_000_000; // EUR 100,000 in minor units
+/** Block if transaction exceeds 2× the customer's declared monthly volume. */
+const MAX_DECLARED_VOLUME_RATIO = 2;
+
+/** Accounts younger than this many days are considered new and subject to stricter limits. */
+const NEW_ACCOUNT_AGE_DAYS = 30;
+
+/** Maximum single transaction allowed for accounts under 30 days old — EUR 100,000 in minor units. */
+const NEW_ACCOUNT_MAX_TX_AMOUNT = 10_000_000;
 
 /**
  * Triggers if:
- * - Transaction > 200% of declared expected size (HIGH), or
- * - Account < 30 days old and transaction > EUR 100,000 (HIGH)
+ * - Account is < 30 days old and transaction > EUR 100,000 (HIGH), or
+ * - Transaction > 200% of the customer's declared expected monthly volume (HIGH)
+ *
+ * The declared monthly volume is set during onboarding and represents the customer's
+ * self-reported expected transaction size.
  */
 export async function sizeExceed(ctx: RuleContext): Promise<RuleResult> {
   const accountAgeDays = (Date.now() - ctx.profile.onboardedAt.getTime()) / (1000 * 60 * 60 * 24);
 
-  if (accountAgeDays < NEW_ACCOUNT_DAYS && ctx.amount > NEW_ACCOUNT_THRESHOLD) {
+  if (accountAgeDays < NEW_ACCOUNT_AGE_DAYS && ctx.amount > NEW_ACCOUNT_MAX_TX_AMOUNT) {
     return {
       rule: RuleName.SIZE_EXCEED,
       triggered: true,
       alertLevel: AlertLevel.HIGH,
-      detail: `New account (${accountAgeDays.toFixed(0)} days) with transaction of ${ctx.amount} exceeding EUR 100,000`,
+      detail: `New account (${accountAgeDays.toFixed(0)} days old) with transaction of ${ctx.amount} exceeding EUR 100,000 new-account limit`,
     };
   }
 
   if (
-    ctx.profile.declaredTransactionSize > 0 &&
-    ctx.amount > ctx.profile.declaredTransactionSize * DECLARED_MULTIPLIER
+    ctx.profile.declaredMonthlyVolume > 0 &&
+    ctx.amount > ctx.profile.declaredMonthlyVolume * MAX_DECLARED_VOLUME_RATIO
   ) {
     return {
       rule: RuleName.SIZE_EXCEED,
       triggered: true,
       alertLevel: AlertLevel.HIGH,
-      detail: `Transaction ${ctx.amount} exceeds 200% of declared size ${ctx.profile.declaredTransactionSize}`,
+      detail: `Transaction ${ctx.amount} exceeds ${MAX_DECLARED_VOLUME_RATIO * 100}% of declared monthly volume ${ctx.profile.declaredMonthlyVolume}`,
     };
   }
 

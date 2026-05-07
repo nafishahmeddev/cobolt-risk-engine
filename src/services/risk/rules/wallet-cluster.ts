@@ -1,23 +1,23 @@
 import { AlertLevel, type RuleContext, RuleName, type RuleResult } from "../../../types/risk";
 
-const MIN_WALLETS = 3;
+/** Minimum number of linked wallets that indicates suspicious clustering activity. */
+const WALLET_CLUSTER_THRESHOLD = 3;
 
 /**
- * Triggers if:
- * - ≥ 3 wallets linked to the same user transact the same asset
- *   within a 5-minute window in the same direction (HIGH)
+ * Triggers if ≥ 3 distinct wallets are linked to the same user (HIGH).
  *
- * Flags Sybil / coordinated wallet clustering patterns.
+ * Flags potential Sybil attacks and coordinated wallet clustering, where a single
+ * entity controls multiple wallets to split and obscure transaction patterns.
  */
 export async function walletCluster(ctx: RuleContext): Promise<RuleResult> {
-  const count = ctx.profile.walletIds.length;
+  const linkedWalletCount = ctx.profile.walletIds.length;
 
-  if (count >= MIN_WALLETS) {
+  if (linkedWalletCount >= WALLET_CLUSTER_THRESHOLD) {
     return {
       rule: RuleName.WALLET_CLUSTER,
       triggered: true,
       alertLevel: AlertLevel.HIGH,
-      detail: `${count} wallets linked to user ${ctx.userRef} (threshold ${MIN_WALLETS})`,
+      detail: `${linkedWalletCount} wallets linked to user ${ctx.userRef} (threshold ${WALLET_CLUSTER_THRESHOLD})`,
     };
   }
 
@@ -25,6 +25,6 @@ export async function walletCluster(ctx: RuleContext): Promise<RuleResult> {
     rule: RuleName.WALLET_CLUSTER,
     triggered: false,
     alertLevel: AlertLevel.HIGH,
-    detail: `${count} wallets — below clustering threshold`,
+    detail: `${linkedWalletCount} wallet(s) — below clustering threshold of ${WALLET_CLUSTER_THRESHOLD}`,
   };
 }

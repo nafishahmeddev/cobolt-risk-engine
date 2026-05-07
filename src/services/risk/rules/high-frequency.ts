@@ -1,39 +1,45 @@
 import { RiskLedger } from "../../../database/primary/models/risk-ledger";
 import { AlertLevel, type RuleContext, RuleName, type RuleResult } from "../../../types/risk";
 
-const TEN_MIN_MS = 10 * 60 * 1000;
-const ONE_HOUR_MS = 60 * 60 * 1000;
-const TEN_MIN_LIMIT = 10;
-const ONE_HOUR_LIMIT = 30;
+const WINDOW_10MIN_MS = 10 * 60 * 1000;
+const WINDOW_1HR_MS = 60 * 60 * 1000;
+
+/** Maximum allowed transactions within a 10-minute window before blocking. */
+const MAX_TX_PER_10MIN = 10;
+
+/** Maximum allowed transactions within a 1-hour window before blocking. */
+const MAX_TX_PER_1HR = 30;
 
 /**
- * Triggers if:
+ * Triggers if the user submits too many transactions in a short window:
  * - ≥ 10 transactions within 10 minutes (MEDIUM), or
  * - ≥ 30 transactions within 1 hour (MEDIUM)
+ *
+ * Counts are queried live from the ledger to avoid stale caches.
  */
 export async function highFrequency(ctx: RuleContext): Promise<RuleResult> {
   const now = Date.now();
 
-  const [count10m, count1h] = await Promise.all([
-    RiskLedger.countDocuments({ userRef: ctx.userRef, createdAt: { $gte: new Date(now - TEN_MIN_MS) } }),
-    RiskLedger.countDocuments({ userRef: ctx.userRef, createdAt: { $gte: new Date(now - ONE_HOUR_MS) } }),
+  const [txCount10Min, txCount1Hr] = await Promise.all([
+    RiskLedger.countDocuments({ userRef: ctx.userRef, createdAt: { $gte: new Date(now - WINDOW_10MIN_MS) } }),
+    RiskLedger.countDocuments({ userRef: ctx.userRef, createdAt: { $gte: new Date(now - WINDOW_1HR_MS) } }),
   ]);
 
-  if (count10m >= TEN_MIN_LIMIT) {
+  if (txCount10Min >= MAX_TX_PER_10MIN) {
     return {
       rule: RuleName.HIGH_FREQUENCY,
       triggered: true,
       alertLevel: AlertLevel.MEDIUM,
-      detail: `${count10m} transactions in 10 minutes (limit ${TEN_MIN_LIMIT})`,
+      detail: `${txCount10Min} transactions in 10 minutes (limit ${MAX_TX_PER_10MIN})`,
     };
   }
 
-  if (count1h >= ONE_HOUR_LIMIT) {
+  if (txCount1Hr >= MAX_TX_PER_1HR) {
     return {
       rule: RuleName.HIGH_FREQUENCY,
       triggered: true,
       alertLevel: AlertLevel.MEDIUM,
-      detail: `${count1h} transactions in 1 hour (limit ${ONE_HOUR_LIMIT})`,
+      detail: `${txCount1Hr} transactions in 1 hour (limit ${MAX_TX_PER_1HR})`,
     };
   }
 

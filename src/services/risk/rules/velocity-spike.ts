@@ -1,20 +1,25 @@
 import { AlertLevel, type RuleContext, RuleName, type RuleResult } from "../../../types/risk";
 
-const THIRTY_DAY_MULTIPLIER = 3; // 300% of 30-day average
-const ABSOLUTE_THRESHOLD = 25_000_000; // EUR 250,000 in minor units
+/** Block if a single transaction is more than 3× the user's monthly average. */
+const MONTHLY_AVG_SPIKE_RATIO = 3;
+
+/** Block any single transaction above EUR 250,000 (in minor units). */
+const MAX_SINGLE_TX_AMOUNT = 25_000_000;
 
 /**
  * Triggers if:
- * - Single transaction exceeds EUR 250,000 (HIGH), or
- * - Amount ≥ 300% of the user's 30-day rolling average (MEDIUM)
+ * - Single transaction exceeds EUR 250,000 absolute limit (HIGH), or
+ * - Amount ≥ 300% of the user's rolling 30-day average (MEDIUM)
+ *
+ * Skipped when the user has no transaction history yet (thirtyDayAverage = 0).
  */
 export async function velocitySpike(ctx: RuleContext): Promise<RuleResult> {
-  if (ctx.amount > ABSOLUTE_THRESHOLD) {
+  if (ctx.amount > MAX_SINGLE_TX_AMOUNT) {
     return {
       rule: RuleName.VELOCITY_SPIKE,
       triggered: true,
       alertLevel: AlertLevel.HIGH,
-      detail: `Transaction of ${ctx.amount} exceeds EUR 250,000 absolute threshold`,
+      detail: `Transaction of ${ctx.amount} exceeds EUR 250,000 absolute limit`,
     };
   }
 
@@ -23,18 +28,18 @@ export async function velocitySpike(ctx: RuleContext): Promise<RuleResult> {
       rule: RuleName.VELOCITY_SPIKE,
       triggered: false,
       alertLevel: AlertLevel.MEDIUM,
-      detail: "No 30-day average yet — velocity check skipped",
+      detail: "No transaction history yet — velocity ratio check skipped",
     };
   }
 
-  const ratio = ctx.amount / ctx.profile.thirtyDayAverage;
+  const spikeRatio = ctx.amount / ctx.profile.thirtyDayAverage;
 
-  if (ratio >= THIRTY_DAY_MULTIPLIER) {
+  if (spikeRatio >= MONTHLY_AVG_SPIKE_RATIO) {
     return {
       rule: RuleName.VELOCITY_SPIKE,
       triggered: true,
       alertLevel: AlertLevel.MEDIUM,
-      detail: `Amount ${ctx.amount} is ${(ratio * 100).toFixed(0)}% of 30-day average ${ctx.profile.thirtyDayAverage} (limit 300%)`,
+      detail: `Amount ${ctx.amount} is ${(spikeRatio * 100).toFixed(0)}% of monthly average ${ctx.profile.thirtyDayAverage} (limit ${MONTHLY_AVG_SPIKE_RATIO * 100}%)`,
     };
   }
 

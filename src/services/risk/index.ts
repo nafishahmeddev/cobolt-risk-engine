@@ -30,7 +30,7 @@ async function fetchOrCreateProfile(userRef: string, walletId: string) {
     walletIds: [walletId],
     status: ProfileStatus.ACTIVE,
     onboardedAt: now,
-    declaredTransactionSize: 0,
+    declaredMonthlyVolume: 0,
     thirtyDayAverage: 0,
     crossBorderBaseline: 0,
     crossBorderCount24h: 0,
@@ -63,7 +63,7 @@ function updateProfileAsync(
 }
 
 interface NotificationPayload {
-  assessId: string;
+  assessmentId: string;
   userRef: string;
   walletId: string;
   amount: number;
@@ -75,13 +75,13 @@ interface NotificationPayload {
 }
 
 function dispatchNotifications(payload: NotificationPayload): void {
-  const { assessId, userRef, walletId, amount, currency, transactionType, chain, allow, triggeredRules } = payload;
+  const { assessmentId, userRef, walletId, amount, currency, transactionType, chain, allow, triggeredRules } = payload;
   const status = allow ? "Approved" : "Blocked";
   const ruleList = triggeredRules.map((r) => `• ${r}`).join("\n");
 
   sendSlackMessage({
     channel: EnvConfig.SLACK_RISK_CHANNEL_ID,
-    text: `🚨 AML Alert — ${status} | ${userRef} | ${assessId}`,
+    text: `🚨 AML Alert — ${status} | ${userRef} | ${assessmentId}`,
     attachments: [
       {
         color: "#FF4444",
@@ -93,7 +93,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
           {
             type: "section",
             fields: [
-              { type: "mrkdwn", text: `*Assessment ID*\n\`${assessId}\`` },
+              { type: "mrkdwn", text: `*Assessment ID*\n\`${assessmentId}\`` },
               { type: "mrkdwn", text: `*User*\n\`${userRef}\`` },
               { type: "mrkdwn", text: `*Amount*\n${currency} ${amount.toLocaleString()}` },
               { type: "mrkdwn", text: `*Transaction Type*\n${transactionType}` },
@@ -117,9 +117,9 @@ function dispatchNotifications(payload: NotificationPayload): void {
 
   sendEmail({
     email: "risk-team@company.com",
-    subject: `[FLAGGED] Risk Assessment — ${assessId}`,
+    subject: `[FLAGGED] Risk Assessment — ${assessmentId}`,
     content: [
-      `Assessment ID    : ${assessId}`,
+      `Assessment ID    : ${assessmentId}`,
       `User             : ${userRef}`,
       `Wallet           : ${walletId}`,
       `Amount           : ${currency} ${amount.toLocaleString()}`,
@@ -143,9 +143,9 @@ function dispatchNotifications(payload: NotificationPayload): void {
  * 6. Dispatch Slack + email alerts if a rule triggered
  */
 export async function assessTransaction(req: AssessRequest): Promise<AssessResponse> {
-  const assessId = generateAssessId();
+  const assessmentId = generateAssessId();
 
-  logger.info({ assessId, userRef: req.userRef, transactionType: req.transactionType }, "Assessment started");
+  logger.info({ assessmentId, userRef: req.userRef, transactionType: req.transactionType }, "Assessment started");
 
   const profile = await fetchOrCreateProfile(req.userRef, req.walletId);
 
@@ -155,15 +155,15 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
     amount: req.amount,
     currency: req.currency,
     transactionType: req.transactionType,
-    counterpartyRef: req.counterpartyRef ?? "",
+    counterpartyId: req.counterpartyId ?? "",
     chain: req.chain ?? "",
-    toWalletId: req.toWalletId ?? "",
+    destinationWalletId: req.destinationWalletId ?? "",
     profile: {
       userRef: profile.userRef,
       walletIds: profile.walletIds,
       status: profile.status,
       onboardedAt: profile.onboardedAt,
-      declaredTransactionSize: profile.declaredTransactionSize,
+      declaredMonthlyVolume: profile.declaredMonthlyVolume,
       thirtyDayAverage: profile.thirtyDayAverage,
       crossBorderBaseline: profile.crossBorderBaseline,
       crossBorderCount24h: profile.crossBorderCount24h,
@@ -178,15 +178,15 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
   const isProfileBlocked = ctx.profile.status === ProfileStatus.BLOCKED;
   const allow = triggeredRules.length === 0 && !isProfileBlocked;
 
-  logger.info({ assessId, allow, triggeredRules }, "Assessment complete");
+  logger.info({ assessmentId, allow, triggeredRules }, "Assessment complete");
 
   await RiskLedger.create({
-    assessId,
+    assessmentId,
     userRef: req.userRef,
     walletId: req.walletId,
-    counterpartyRef: req.counterpartyRef ?? "",
+    counterpartyId: req.counterpartyId ?? "",
     chain: req.chain ?? "",
-    toWalletId: req.toWalletId ?? "",
+    destinationWalletId: req.destinationWalletId ?? "",
     amount: req.amount,
     currency: req.currency,
     transactionType: req.transactionType,
@@ -200,7 +200,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
 
   if (triggeredRules.length > 0) {
     dispatchNotifications({
-      assessId,
+      assessmentId,
       userRef: req.userRef,
       walletId: req.walletId,
       amount: req.amount,
@@ -212,5 +212,5 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
     });
   }
 
-  return { assessId, allow, triggeredRules };
+  return { assessmentId, allow, triggeredRules };
 }

@@ -3,12 +3,12 @@ import { AlertLevel } from "../../../types/risk";
 import { conn } from "../connection";
 
 export interface IRiskLedger {
-  assessId: string;
+  assessmentId: string;
   userRef: string;
   walletId: string;
-  counterpartyRef: string;
+  counterpartyId: string;
   chain: string;
-  toWalletId: string;
+  destinationWalletId: string;
   amount: number;
   currency: string;
   transactionType: string;
@@ -25,12 +25,12 @@ export interface IRiskLedger {
 
 const schema = new Schema<IRiskLedger>(
   {
-    assessId: { type: String, required: true, unique: true },
+    assessmentId: { type: String, required: true, unique: true },
     userRef: { type: String, required: true, index: true },
     walletId: { type: String, required: true },
-    counterpartyRef: { type: String, default: "" },
+    counterpartyId: { type: String, default: "" },
     chain: { type: String, default: "" },
-    toWalletId: { type: String, default: "" },
+    destinationWalletId: { type: String, default: "" },
     amount: { type: Number, required: true },
     currency: { type: String, required: true },
     transactionType: { type: String, required: true },

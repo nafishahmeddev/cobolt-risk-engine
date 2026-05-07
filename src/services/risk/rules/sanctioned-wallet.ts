@@ -13,8 +13,8 @@ interface Candidate {
 function buildCandidates(ctx: RuleContext): Candidate[] {
   return [
     { address: ctx.walletId, label: "source" },
-    ...(ctx.counterpartyRef ? [{ address: ctx.counterpartyRef, label: "counterparty" as const }] : []),
-    ...(ctx.toWalletId ? [{ address: ctx.toWalletId, label: "destination" as const }] : []),
+    ...(ctx.counterpartyId ? [{ address: ctx.counterpartyId, label: "counterparty" as const }] : []),
+    ...(ctx.destinationWalletId ? [{ address: ctx.destinationWalletId, label: "destination" as const }] : []),
   ];
 }
 

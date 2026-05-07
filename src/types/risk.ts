@@ -1,15 +1,21 @@
+/** Supported transaction categories. Determines which AML rules are evaluated. */
 export enum TransactionType {
+  /** Fiat currency deposit. No chain or destination wallet required. */
   DEPOSIT = "DEPOSIT",
+  /** Purchase of cryptocurrency with fiat. Requires chain and destination wallet. */
   BUY_CRYPTO = "BUY_CRYPTO",
+  /** Withdrawal of cryptocurrency to an external wallet. Requires chain and destination wallet. */
   WITHDRAW_CRYPTO = "WITHDRAW_CRYPTO",
 }
 
 export const TRANSACTION_TYPES = Object.values(TransactionType);
 
+/** Returns true for transaction types that involve on-chain crypto movement. */
 export function isCryptoType(t: TransactionType): boolean {
   return t === TransactionType.BUY_CRYPTO || t === TransactionType.WITHDRAW_CRYPTO;
 }
 
+/** Severity classification assigned to each AML rule. Used for reporting and alert routing. */
 export enum AlertLevel {
   MEDIUM = "medium",
   HIGH = "high",
@@ -18,9 +24,13 @@ export enum AlertLevel {
 
 export const ALERT_LEVELS = Object.values(AlertLevel);
 
+/** Lifecycle status of a user's risk profile. */
 export enum ProfileStatus {
+  /** Normal — assessments proceed as usual. */
   ACTIVE = "active",
+  /** Under review — assessments still run but flagged for manual inspection. */
   FLAGGED = "flagged",
+  /** Suspended — all transactions blocked regardless of rule outcome. */
   BLOCKED = "blocked",
 }
 
@@ -28,67 +38,108 @@ export const PROFILE_STATUSES = Object.values(ProfileStatus);
 
 /** AML rule identifiers — one per rule file. */
 export enum RuleName {
+  /** Transaction amount spikes far above the user's historical average. */
   VELOCITY_SPIKE = "VELOCITY_SPIKE",
+  /** Unusually high number of transactions in a short time window. */
   HIGH_FREQUENCY = "HIGH_FREQUENCY",
+  /** Transaction exceeds the user's declared expected size or new-account limits. */
   SIZE_EXCEED = "SIZE_EXCEED",
+  /** Source, destination, or counterparty wallet is sanctioned or high-risk per AMLBot. */
   SANCTIONED_WALLET = "SANCTIONED_WALLET",
+  /** Deposit volume over 24h surges beyond the user's established baseline. */
   CROSS_BORDER_SURGE = "CROSS_BORDER_SURGE",
+  /** Multiple wallets linked to the same user, indicating Sybil or coordinated activity. */
   WALLET_CLUSTER = "WALLET_CLUSTER",
+  /** Large transaction placed within 24h of a known market-moving event. */
   MARKET_EVENT = "MARKET_EVENT",
 }
 
 export const RULE_NAMES = Object.values(RuleName);
 
-/** Incoming request from integrator. */
+/** Payload sent by the integrator to request a risk assessment. */
 export interface AssessRequest {
+  /** Internal user identifier from the integrator's system. */
   userRef: string;
+  /** Source wallet address or bank account identifier. */
   walletId: string;
+  /** Transaction amount in the smallest currency unit (e.g. cents for EUR). */
   amount: number;
+  /** ISO 4217 three-letter currency code (e.g. "EUR", "BTC"). */
   currency: string;
+  /** Category of transaction — determines which rules run. */
   transactionType: TransactionType;
-  counterpartyRef?: string;
+  /** Optional counterparty identifier (bank, exchange, or wallet). */
+  counterpartyId?: string;
+  /** Blockchain network identifier (e.g. "ETH", "BTC"). Required for crypto types. */
   chain?: string;
-  toWalletId?: string;
+  /** Destination wallet address. Required for BUY_CRYPTO and WITHDRAW_CRYPTO. */
+  destinationWalletId?: string;
 }
 
-/** Response returned to integrator after assessment. */
+/** Result returned to the integrator after all applicable rules are evaluated. */
 export interface AssessResponse {
-  assessId: string;
+  /** Unique identifier for this assessment record. */
+  assessmentId: string;
+  /** Whether the transaction is approved. False if any rule triggered or profile is BLOCKED. */
   allow: boolean;
+  /** Names of all rules that fired. Empty array means the transaction passed all checks. */
   triggeredRules: RuleName[];
 }
 
-/** Output of a single AML rule evaluation. */
+/** Result produced by a single AML rule evaluation. */
 export interface RuleResult {
+  /** The rule that produced this result. */
   rule: RuleName;
+  /** Whether the rule fired and flagged this transaction. */
   triggered: boolean;
+  /** Severity of the alert if the rule fires. */
   alertLevel: AlertLevel;
+  /** Human-readable explanation of the rule outcome. Logged and stored for audit. */
   detail: string;
 }
 
-/** Context passed to every rule function. Optional fields are normalised to "" by the orchestrator. */
+/** Shared input passed to every rule function. All optional request fields are normalised to "" by the orchestrator. */
 export interface RuleContext {
+  /** Internal user identifier. */
   userRef: string;
+  /** Source wallet address or bank account identifier. */
   walletId: string;
+  /** Transaction amount in smallest currency unit. */
   amount: number;
+  /** ISO 4217 currency code. */
   currency: string;
+  /** Transaction category. */
   transactionType: TransactionType;
-  counterpartyRef: string;
+  /** Counterparty identifier, or "" if not provided. */
+  counterpartyId: string;
+  /** Blockchain network, or "" for fiat-only transactions. */
   chain: string;
-  toWalletId: string;
+  /** Destination wallet address, or "" for fiat-only transactions. */
+  destinationWalletId: string;
+  /** Snapshot of the user's risk profile at the time of assessment. */
   profile: RiskProfileData;
 }
 
-/** Plain-data shape of a risk profile (mirrors the DB model). */
+/** Plain-data snapshot of a user's risk profile, passed into rule evaluations. */
 export interface RiskProfileData {
+  /** Internal user identifier. */
   userRef: string;
+  /** All wallet addresses linked to this user. */
   walletIds: string[];
+  /** Current lifecycle status of the profile. */
   status: ProfileStatus;
+  /** Timestamp when the user was onboarded onto the platform. */
   onboardedAt: Date;
-  declaredTransactionSize: number;
+  /** Customer's self-declared expected monthly transaction volume (smallest currency unit). */
+  declaredMonthlyVolume: number;
+  /** Exponentially weighted moving average of transaction amounts over approximately 30 days. */
   thirtyDayAverage: number;
+  /** Established baseline for total 24h deposit volume, used by CROSS_BORDER_SURGE rule. */
   crossBorderBaseline: number;
+  /** Rolling count of deposit transactions in the last 24 hours. */
   crossBorderCount24h: number;
+  /** Total number of risk assessments run for this user. */
   totalAssessments: number;
+  /** Timestamp of the most recent assessment. */
   lastAssessedAt: Date;
 }
