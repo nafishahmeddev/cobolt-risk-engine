@@ -1,0 +1,469 @@
+{
+  "info": {
+    "name": "Cobat Risk Engine",
+    "description": "Real-time AML transaction risk assessment API.\n\nBase URL: `{{base_url}}/api`\n\nAuth: All `/v1/` routes require `Authorization: Bearer {{api_key}}` header.\n\n---\n\n**Three-state assessment flow:**\n- `success` — all rules passed, transaction approved\n- `failed` — one or more rules triggered, transaction blocked\n- `pending` — AMLBot wallet screen is asynchronous (up to ~10 min); final decision POSTed to `callbackUrl`\n\n**Callback payload** (POSTed to `callbackUrl` on resolution):\n```json\n{\n  \"assessmentId\": \"risk_...\",\n  \"status\": \"success\" | \"failed\",\n  \"triggeredRules\": []\n}\n```\n\n---\n\n**Transaction types:**\n- `DEPOSIT` — fiat deposit; no `chain` or `destinationWalletId` needed\n- `BUY_CRYPTO` — requires `chain` + `destinationWalletId`\n- `WITHDRAW_CRYPTO` — requires `chain` + `destinationWalletId`\n\n`counterpartyId` is optional on all types.\n\n**Decision logic:** any rule triggers → `failed`. All rules pass → `success`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "sk-test-api-key-change-in-production",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /api/health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Health check. No auth required."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/health",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "health"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": { \"status\": \"ok\" }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Risk Assessment",
+      "item": [
+        {
+          "name": "POST /api/v1/risk/assess",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userRef\": \"usr_demo_001\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 500000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"DEPOSIT\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/risk/assess",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "risk", "assess"]
+            },
+            "description": "Submit a transaction for AML risk assessment. Rules run in parallel. Any triggered rule blocks the transaction.\n\n**Required fields:**\n- `userRef` — internal user identifier\n- `walletId` — source wallet address or bank account\n- `amount` — integer, smallest currency unit (e.g. cents for EUR)\n- `currency` — ISO 4217 3-letter code (e.g. `EUR`, `BTC`)\n- `transactionType` — `DEPOSIT` | `BUY_CRYPTO` | `WITHDRAW_CRYPTO`\n- `callbackUrl` — URL to POST the final decision to when AMLBot resolves asynchronously\n\n**Required for `BUY_CRYPTO` and `WITHDRAW_CRYPTO`:**\n- `chain` — blockchain network (e.g. `ETH`, `BTC`)\n- `destinationWalletId` — destination wallet address\n\n**Optional:**\n- `counterpartyId` — counterparty bank, exchange, or wallet identifier\n\n**Response states:**\n- `success` / `failed` — synchronous decision, all rules resolved immediately\n- `pending` — AMLBot wallet check is asynchronous; final result POSTed to `callbackUrl`"
+          },
+          "response": [
+            {
+              "name": "DEPOSIT — Clean (success)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_demo_001\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 500000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"DEPOSIT\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"success\",\n    \"assessmentId\": \"risk_a1b2c3d4e5f6g7h8i9\",\n    \"triggeredRules\": []\n  }\n}"
+            },
+            {
+              "name": "DEPOSIT — SIZE_EXCEED triggered (failed)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_demo_002\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 30000000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"DEPOSIT\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"failed\",\n    \"assessmentId\": \"risk_b2c3d4e5f6g7h8i9j0\",\n    \"triggeredRules\": [\"SIZE_EXCEED\"]\n  }\n}"
+            },
+            {
+              "name": "DEPOSIT — VELOCITY_SPIKE triggered (failed)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_returning_001\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 8000000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"DEPOSIT\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"failed\",\n    \"assessmentId\": \"risk_c3d4e5f6g7h8i9j0k1\",\n    \"triggeredRules\": [\"VELOCITY_SPIKE\"]\n  }\n}"
+            },
+            {
+              "name": "DEPOSIT — CROSS_BORDER_SURGE triggered (failed)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_surge_001\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 2000000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"DEPOSIT\",\n  \"counterpartyId\": \"BANK_DE_001\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"failed\",\n    \"assessmentId\": \"risk_d4e5f6g7h8i9j0k1l2\",\n    \"triggeredRules\": [\"CROSS_BORDER_SURGE\"]\n  }\n}"
+            },
+            {
+              "name": "BUY_CRYPTO — Clean (success)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_crypto_001\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 500000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"BUY_CRYPTO\",\n  \"chain\": \"ETH\",\n  \"destinationWalletId\": \"0x8fC9e7c2A5bD4f6E1a3C9b8D7e5F2a0c6B4d8E1\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"success\",\n    \"assessmentId\": \"risk_e5f6g7h8i9j0k1l2m3\",\n    \"triggeredRules\": []\n  }\n}"
+            },
+            {
+              "name": "BUY_CRYPTO — AMLBot deferred (pending)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_crypto_002\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 1500000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"BUY_CRYPTO\",\n  \"chain\": \"ETH\",\n  \"destinationWalletId\": \"0x8fC9e7c2A5bD4f6E1a3C9b8D7e5F2a0c6B4d8E1\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"pending\",\n    \"assessmentId\": \"risk_f6g7h8i9j0k1l2m3n4\"\n  }\n}",
+              "description": "AMLBot wallet screen is asynchronous. All other rules passed. Final decision will be POSTed to `callbackUrl` once AMLBot resolves (up to ~10 min).\n\nCallback payload example:\n```json\n{\n  \"assessmentId\": \"risk_f6g7h8i9j0k1l2m3n4\",\n  \"status\": \"success\",\n  \"triggeredRules\": []\n}\n```"
+            },
+            {
+              "name": "BUY_CRYPTO — SANCTIONED_WALLET triggered (failed)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_crypto_003\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 1000000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"BUY_CRYPTO\",\n  \"chain\": \"ETH\",\n  \"destinationWalletId\": \"0x7F367cC41522cE07553e823bf3be79A889debe1B\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"failed\",\n    \"assessmentId\": \"risk_g7h8i9j0k1l2m3n4o5\",\n    \"triggeredRules\": [\"SANCTIONED_WALLET\"]\n  }\n}"
+            },
+            {
+              "name": "BUY_CRYPTO — MARKET_EVENT triggered (failed)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_crypto_004\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 25000000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"BUY_CRYPTO\",\n  \"chain\": \"BTC\",\n  \"destinationWalletId\": \"bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"failed\",\n    \"assessmentId\": \"risk_h8i9j0k1l2m3n4o5p6\",\n    \"triggeredRules\": [\"MARKET_EVENT\"]\n  }\n}"
+            },
+            {
+              "name": "WITHDRAW_CRYPTO — Clean (success)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_crypto_001\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 200000,\n  \"currency\": \"ETH\",\n  \"transactionType\": \"WITHDRAW_CRYPTO\",\n  \"chain\": \"ETH\",\n  \"destinationWalletId\": \"0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"success\",\n    \"assessmentId\": \"risk_i9j0k1l2m3n4o5p6q7\",\n    \"triggeredRules\": []\n  }\n}"
+            },
+            {
+              "name": "WITHDRAW_CRYPTO — WALLET_CLUSTER triggered (failed)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_cluster_001\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 5000000,\n  \"currency\": \"ETH\",\n  \"transactionType\": \"WITHDRAW_CRYPTO\",\n  \"chain\": \"ETH\",\n  \"destinationWalletId\": \"0x95222290DD7278Aa3D3893899b6F8f3D1F8bD4cB\",\n  \"counterpartyId\": \"0x267be1C1D684F78cb4F6a176C4911b741E4Ffdc0\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"failed\",\n    \"assessmentId\": \"risk_j0k1l2m3n4o5p6q7r8\",\n    \"triggeredRules\": [\"WALLET_CLUSTER\"]\n  }\n}"
+            },
+            {
+              "name": "Multiple rules triggered (failed)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_bad_actor_001\",\n  \"walletId\": \"0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18\",\n  \"amount\": 50000000,\n  \"currency\": \"ETH\",\n  \"transactionType\": \"WITHDRAW_CRYPTO\",\n  \"chain\": \"ETH\",\n  \"destinationWalletId\": \"0x7F367cC41522cE07553e823bf3be79A889debe1B\",\n  \"counterpartyId\": \"0x267be1C1D684F78cb4F6a176C4911b741E4Ffdc0\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"status\": \"failed\",\n    \"assessmentId\": \"risk_k1l2m3n4o5p6q7r8s9\",\n    \"triggeredRules\": [\"VELOCITY_SPIKE\", \"SIZE_EXCEED\", \"SANCTIONED_WALLET\", \"WALLET_CLUSTER\"]\n  }\n}"
+            },
+            {
+              "name": "400 — Missing chain/destinationWalletId for BUY_CRYPTO",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_test\",\n  \"walletId\": \"0xtest\",\n  \"amount\": 1000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"BUY_CRYPTO\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Validation failed\",\n  \"details\": [\n    { \"path\": [\"chain\"], \"message\": \"Required\" },\n    { \"path\": [\"destinationWalletId\"], \"message\": \"Required\" }\n  ]\n}"
+            },
+            {
+              "name": "400 — Missing callbackUrl",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_test\",\n  \"walletId\": \"0xtest\",\n  \"amount\": 1000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"DEPOSIT\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Validation failed\",\n  \"details\": [\n    { \"path\": [\"callbackUrl\"], \"message\": \"Invalid url\" }\n  ]\n}"
+            },
+            {
+              "name": "400 — Invalid transactionType",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{api_key}}", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_test\",\n  \"walletId\": \"0xtest\",\n  \"amount\": 1000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"TRANSFER\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Validation failed\",\n  \"details\": [\n    { \"path\": [\"transactionType\"], \"message\": \"Invalid discriminator value. Expected 'DEPOSIT' | 'BUY_CRYPTO' | 'WITHDRAW_CRYPTO'\" }\n  ]\n}"
+            },
+            {
+              "name": "401 — Missing API Key",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_test\",\n  \"walletId\": \"0xtest\",\n  \"amount\": 1000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"DEPOSIT\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Missing API key\"\n}"
+            },
+            {
+              "name": "401 — Invalid API Key",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer wrong-key", "type": "text" },
+                  { "key": "Content-Type", "value": "application/json", "type": "text" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userRef\": \"usr_test\",\n  \"walletId\": \"0xtest\",\n  \"amount\": 1000,\n  \"currency\": \"EUR\",\n  \"transactionType\": \"DEPOSIT\",\n  \"callbackUrl\": \"https://your-platform.com/webhooks/risk\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/risk/assess",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "risk", "assess"]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Invalid API key\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
