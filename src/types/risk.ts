@@ -96,18 +96,24 @@ export interface AssessRequest {
  * Result returned to the integrator after assessment completes.
  * When `status` is `pending`, the final decision is delivered to `callbackUrl`.
  */
+/**
+ * Result returned to the integrator after assessment completes.
+ * - `success`: assessment ran without error. Check `allow` for the transaction decision.
+ * - `pending`: AMLBot check is asynchronous; final decision delivered to `callbackUrl`.
+ * - `failed`: internal error — assessment could not be completed.
+ */
 export type AssessResponse =
-  | { status: AssessmentStatus.SUCCESS; assessmentId: string; triggeredRules: RuleName[] }
-  | { status: AssessmentStatus.FAILED; assessmentId: string; triggeredRules: RuleName[] }
-  | { status: AssessmentStatus.PENDING; assessmentId: string };
+  | { status: AssessmentStatus.SUCCESS; assessmentId: string; allow: boolean; triggeredRules: RuleName[] }
+  | { status: AssessmentStatus.PENDING; assessmentId: string }
+  | { status: AssessmentStatus.FAILED; assessmentId: string };
 
 /**
  * Payload POSTed to the integrator's `callbackUrl` when an async assessment finalises.
- * Shape mirrors the sync `AssessResponse` without the `pending` variant.
  */
 export interface AssessCallbackPayload {
   assessmentId: string;
   status: AssessmentStatus.SUCCESS | AssessmentStatus.FAILED;
+  allow: boolean;
   triggeredRules: RuleName[];
 }
 

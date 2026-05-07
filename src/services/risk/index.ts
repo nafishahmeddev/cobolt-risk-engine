@@ -245,8 +245,8 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
       allow: false,
       triggeredRules: triggeredCompleted,
     });
-    logger.info({ assessmentId, triggeredRules: triggeredCompleted }, "Assessment failed — early block");
-    return { status: AssessmentStatus.FAILED, assessmentId, triggeredRules: triggeredCompleted as RuleName[] };
+    logger.info({ assessmentId, triggeredRules: triggeredCompleted }, "Assessment complete — early block");
+    return { status: AssessmentStatus.SUCCESS, assessmentId, allow: false, triggeredRules: triggeredCompleted };
   }
 
   // AMLBot deferred — store requestId and partial results; poller will resolve.
@@ -280,9 +280,8 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
     });
   }
 
-  const finalStatus = allow ? AssessmentStatus.SUCCESS : AssessmentStatus.FAILED;
-  logger.info({ assessmentId, finalStatus, triggeredRules }, "Assessment complete");
-  return { status: finalStatus, assessmentId, triggeredRules: triggeredRules as RuleName[] };
+  logger.info({ assessmentId, allow, triggeredRules }, "Assessment complete");
+  return { status: AssessmentStatus.SUCCESS, assessmentId, allow, triggeredRules };
 }
 
 /**
@@ -304,11 +303,10 @@ export async function finalizeAssessment(assessment: IRiskAssessment, amlResult:
   const allResults: IRuleResultDoc[] = [...assessment.completedRuleResults, amlRuleResult];
   const triggeredRules = allResults.filter((r) => r.triggered).map((r) => r.rule);
   const allow = triggeredRules.length === 0;
-  const finalStatus = allow ? AssessmentStatus.SUCCESS : AssessmentStatus.FAILED;
 
   await commitToLedger(assessment, allResults, triggeredRules, allow);
 
-  logger.info({ assessmentId: assessment.assessmentId, finalStatus, triggeredRules }, "Assessment finalised by poller");
+  logger.info({ assessmentId: assessment.assessmentId, allow, triggeredRules }, "Assessment finalised by poller");
 
   if (!allow) {
     dispatchNotifications({
@@ -326,8 +324,9 @@ export async function finalizeAssessment(assessment: IRiskAssessment, amlResult:
 
   const callbackPayload: AssessCallbackPayload = {
     assessmentId: assessment.assessmentId,
-    status: finalStatus,
-    triggeredRules: triggeredRules as RuleName[],
+    status: AssessmentStatus.SUCCESS,
+    allow,
+    triggeredRules,
   };
 
   sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
