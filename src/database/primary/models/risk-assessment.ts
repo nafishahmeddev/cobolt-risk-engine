@@ -1,5 +1,5 @@
 import { type Model, Schema } from "mongoose";
-import { AlertLevel, RuleName, TransactionType } from "../../../types/risk";
+import { AlertLevel, type RuleName, type TransactionType } from "../../../types/risk";
 import { conn } from "../connection";
 
 /** Partial rule result stored while an assessment is in-flight. */

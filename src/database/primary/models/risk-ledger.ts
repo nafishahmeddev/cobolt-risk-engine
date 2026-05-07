@@ -1,5 +1,5 @@
 import { type Model, Schema } from "mongoose";
-import { RuleName, TransactionType } from "../../../types/risk";
+import { AlertLevel, type RuleName, type TransactionType } from "../../../types/risk";
 import { conn } from "../connection";
 import type { IRuleResultDoc } from "./risk-assessment";
 
