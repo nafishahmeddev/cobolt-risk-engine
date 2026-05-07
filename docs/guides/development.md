@@ -10,7 +10,7 @@
 
 ```bash
 git clone <repo>
-cd cobolt-risk-engine
+cd cobat-risk-engine
 
 cp .env-example .env.local
 # edit .env.local with your values
@@ -28,7 +28,7 @@ HTTP_HOST=0.0.0.0
 SLACK_BOT_TOKEN=xoxb-your-token
 EMAIL_API_URL=https://mailer.dcom.at/email
 EMAIL_API_KEY=your-key
-MONGODB_URI=mongodb://localhost:27017/cobolt-risk-engine
+MONGODB_URI=mongodb://localhost:27017/cobat-risk-engine
 APP_API_KEY=sk-your-dev-key
 ```
 

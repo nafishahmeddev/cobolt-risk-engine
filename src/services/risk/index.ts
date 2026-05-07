@@ -139,12 +139,12 @@ function dispatchNotifications(payload: NotificationPayload): void {
           },
           {
             type: "context",
-            elements: [{ type: "mrkdwn", text: `Cobolt Risk Engine  •  ${new Date().toUTCString()}` }],
+            elements: [{ type: "mrkdwn", text: `Cobat Risk Engine  •  ${new Date().toUTCString()}` }],
           },
         ],
       },
     ],
-  }).catch(() => {});
+  }).catch(() => { });
 
   sendEmail({
     email: "risk-team@company.com",
@@ -159,7 +159,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 // ─── Pipeline ────────────────────────────────────────────────────────────────
@@ -330,5 +330,5 @@ export async function finalizeAssessment(assessment: IRiskAssessment, amlResult:
     triggeredRules: triggeredRules as RuleName[],
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
 }

@@ -1,13 +1,13 @@
 {
-  "name": "cobolt-risk-engine",
+  "name": "cobat-risk-engine",
   "version": "1.0.0",
-  "description": "Risk Engine for Cobolt",
+  "description": "Risk Engine for Cobat",
   "license": "UNLICENSED",
-  "author": "Nafish Ahmed <n.ahmed@cobolt.me>",
+  "author": "Nafish Ahmed <n.ahmed@cobat.me>",
   "contributors": [
     {
       "name": "Nafish Ahmed",
-      "email": "n.ahmed@cobolt.me",
+      "email": "n.ahmed@cobat.me",
       "role": "Developer"
     }
   ],

@@ -1,4 +1,4 @@
-# Cobolt Risk Engine
+# Cobat Risk Engine
 
 Real-time AML transaction risk assessment API for third-party integrators.
 
@@ -270,7 +270,7 @@ Decision:      Blocked
 
 Triggered Rules: VELOCITY_SPIKE, SIZE_DEVIATION
 ---
-Cobolt Risk Engine
+Cobat Risk Engine
 ```
 
 ## Env Vars

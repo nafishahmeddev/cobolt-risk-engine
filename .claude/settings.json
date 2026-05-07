@@ -1,13 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git -C /Users/ahmed/Documents/Projects/Cobolt/cobolt-risk-engine status --short)",
+      "Bash(git -C /Users/ahmed/Documents/Projects/Cobat/cobat-risk-engine status --short)",
       "Bash(npx tsc *)",
       "WebSearch",
       "WebFetch(domain:docs.amlbot.com)",
       "WebFetch(domain:kyc-docs.amlbot.com)",
       "WebFetch(domain:www.postman.com)",
-      "Bash(git -C /Users/ahmed/Documents/Projects/Cobolt/cobolt-risk-engine commit -m \"feat: initialize cobolt risk engine with modular aml rule validation\")",
+      "Bash(git -C /Users/ahmed/Documents/Projects/Cobat/cobat-risk-engine commit -m \"feat: initialize cobat risk engine with modular aml rule validation\")",
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(xargs perl -pi -e ' *)",
       "Bash(xargs perl *)",

@@ -1,4 +1,4 @@
-# Cobolt Risk Engine — API Reference
+# Cobat Risk Engine — API Reference
 
 Base URL: `http://localhost:3000/api`
 
@@ -176,7 +176,7 @@ Assess a transaction for AML risk. Auth required.
 
 ## Postman Collection
 
-Import `docs/cobolt-risk-engine.postman_collection.json` into Postman. Variables:
+Import `docs/cobat-risk-engine.postman_collection.json` into Postman. Variables:
 
 | Variable | Default |
 |----------|---------|
