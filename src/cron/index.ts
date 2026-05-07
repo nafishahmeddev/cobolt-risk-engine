@@ -1,6 +1,6 @@
 import { Cron } from "croner";
 import { logger } from "../utils/logger";
-import { tick as amlbotPollTick } from "./amlbot-poll";
+import { tick as processDeferredTick } from "./process-deferred";
 
 interface CronJob {
   name: string;
@@ -12,9 +12,10 @@ interface CronJob {
 /** Add new cron jobs here. One entry per job. */
 const JOBS: CronJob[] = [
   {
-    name: "amlbot-poll",
+    name: "process-deferred",
+    // Every 30 seconds — resolves deferred rule evaluations (poll-based steps)
     schedule: "*/30 * * * * *",
-    tick: amlbotPollTick,
+    tick: processDeferredTick,
   },
 ];
 
@@ -28,7 +29,7 @@ const tasks: ManagedTask[] = [];
 
 export function startAllCrons(): void {
   for (const job of JOBS) {
-    const managed: ManagedTask = { cron: null!, currentRun: null };
+    const managed = { cron: undefined as unknown as Cron, currentRun: null as Promise<void> | null };
 
     managed.cron = new Cron(
       job.schedule,

@@ -70,6 +70,14 @@ export enum AssessmentStatus {
 
 export const ASSESSMENT_STATUSES = Object.values(AssessmentStatus);
 
+export enum TransactionDecision {
+  ALLOW = "allow",
+  BLOCK = "block",
+  REVIEW = "review",
+}
+
+export const TRANSACTION_DECISIONS = Object.values(TransactionDecision);
+
 /** Payload sent by the integrator to request a risk assessment. */
 export interface AssessRequest {
   /** Internal user identifier from the integrator's system. */
@@ -127,10 +135,10 @@ export interface RuleResult {
   alertLevel: AlertLevel;
   /** Human-readable explanation of the rule outcome. Logged and stored for audit. */
   detail: string;
-  /** True when AMLBot has not yet returned a result — poller will resolve via recheck. */
-  pending?: boolean;
-  /** AMLBot request ID to poll when `pending` is true. */
-  amlbotRequestId?: string;
+  /** True when the rule evaluation is deferred (async) and requires async resolution. */
+  deferred?: boolean;
+  /** Arbitrary metadata for the deferred step resolver. Shape depends on the rule. */
+  metadata?: Record<string, unknown>;
 }
 
 /** Shared input passed to every rule function. All optional request fields are normalised to "" by the orchestrator. */

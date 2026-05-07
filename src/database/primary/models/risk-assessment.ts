@@ -2,7 +2,7 @@ import { type Model, Schema } from "mongoose";
 import { AlertLevel, type RuleName, type TransactionType } from "../../../types/risk";
 import { conn } from "../connection";
 
-/** Partial rule result stored while an assessment is in-flight. */
+/** Persisted rule result — stored in assessment doc while in-flight and copied to ledger on finalisation. */
 export interface IRuleResultDoc {
   rule: RuleName;
   triggered: boolean;
@@ -10,15 +10,23 @@ export interface IRuleResultDoc {
   detail: string;
 }
 
+/** A rule that did not complete synchronously — resolved asynchronously by the rule's registered resolver. */
+export interface IDeferredRule {
+  rule: RuleName;
+  /** Rule-specific metadata consumed by the rule's deferred resolver. */
+  metadata: Record<string, unknown>;
+}
+
 /**
  * Mutable in-flight record created at the start of every assessment.
  * Deleted once the assessment is finalised and written to risk_ledger.
  * Presence here = assessment still in progress.
+ *
+ * `ruleResults` collects all completed (sync + resolved-deferred) rule outcomes.
+ * `deferredRules` tracks rules still waiting for async resolution.
  */
 export interface IRiskAssessment {
-  /** Unique assessment identifier. */
   assessmentId: string;
-  /** Internal user identifier from the integrator's system. */
   userRef: string;
   walletId: string;
   counterpartyId: string;
@@ -27,20 +35,11 @@ export interface IRiskAssessment {
   amount: number;
   currency: string;
   transactionType: TransactionType;
-  /** Integrator's webhook URL — carried over to the ledger on finalisation. */
   callbackUrl: string;
-  /**
-   * AMLBot's internal request ID returned when processing is deferred.
-   * The poller calls `recheckAddress` with this until a result arrives.
-   * Empty string when AMLBot responded synchronously (no polling needed).
-   */
-  amlbotRequestId: string;
-  /**
-   * Rule results from all non-AMLBot rules that completed synchronously.
-   * Bounded to ≤6 items. Populated only when AMLBot is deferred.
-   */
-  completedRuleResults: IRuleResultDoc[];
-  /** When the original assess request was received. Copied to ledger on finalisation. */
+  /** All rule results collected so far. Appended to as deferred rules resolve. */
+  ruleResults: IRuleResultDoc[];
+  /** Rules still pending async resolution. Cron iterates these and resolves via registered step resolver. */
+  deferredRules: IDeferredRule[];
   createdAt: Date;
 }
 
@@ -50,6 +49,14 @@ const ruleResultSchema = new Schema<IRuleResultDoc>(
     triggered: { type: Boolean, required: true },
     alertLevel: { type: String, enum: Object.values(AlertLevel), required: true },
     detail: { type: String, default: "" },
+  },
+  { _id: false },
+);
+
+const deferredRuleSchema = new Schema<IDeferredRule>(
+  {
+    rule: { type: String, required: true },
+    metadata: { type: Schema.Types.Mixed, default: {} },
   },
   { _id: false },
 );
@@ -66,11 +73,13 @@ const schema = new Schema<IRiskAssessment>(
     currency: { type: String, required: true },
     transactionType: { type: String, required: true },
     callbackUrl: { type: String, required: true },
-    amlbotRequestId: { type: String, default: "", index: true },
-    completedRuleResults: { type: [ruleResultSchema], default: [] },
+    ruleResults: { type: [ruleResultSchema], default: [] },
+    deferredRules: { type: [deferredRuleSchema], default: [] },
     createdAt: { type: Date, required: true },
   },
   { collection: "risk_assessments", timestamps: false, versionKey: false },
 );
+
+schema.index({ "deferredRules.0": 1, createdAt: 1 });
 
 export const RiskAssessment: Model<IRiskAssessment> = conn.model<IRiskAssessment>("RiskAssessment", schema);

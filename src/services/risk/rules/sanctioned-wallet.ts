@@ -22,8 +22,8 @@ function flagDetail(candidate: Candidate, sanctioned: boolean, score: number): s
 /**
  * Screens all addresses in the transaction via AMLBot.
  * Triggers CRITICAL if any address is sanctioned or has risk score ≥ 75.
- * Returns `pending: true` with `amlbotRequestId` when AMLBot defers processing —
- * the poller resolves via `recheckAddress`.
+ * Returns `deferred: true` with `metadata.requestId` when AMLBot defers —
+ * the generic poller resolves via the "amlbot" poll resolver.
  * Skipped when no chain is present (fiat DEPOSIT without crypto wallet context).
  */
 export async function sanctionedWallet(ctx: RuleContext): Promise<RuleResult> {
@@ -48,8 +48,8 @@ export async function sanctionedWallet(ctx: RuleContext): Promise<RuleResult> {
         triggered: false,
         alertLevel: AlertLevel.CRITICAL,
         detail: `AMLBot check deferred for ${candidate.label} address — poller will resolve`,
-        pending: true,
-        amlbotRequestId: result.requestId,
+        deferred: true,
+        metadata: { requestId: result.requestId },
       };
     }
 
