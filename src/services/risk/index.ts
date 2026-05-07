@@ -9,10 +9,11 @@ import {
   type AssessRequest,
   type AssessResponse,
   ProfileStatus,
+  type RiskProfileData,
   type RuleContext,
   type RuleName,
   type RuleResult,
-  type TransactionType,
+  TransactionType,
 } from "../../types/risk";
 import { logger } from "../../utils/logger";
 import { sendAssessmentCallback } from "../callback";
@@ -180,6 +181,39 @@ function dispatchNotifications(payload: NotificationPayload): void {
   }).catch(() => {});
 }
 
+// ─── Context builder ─────────────────────────────────────────────────────────
+
+function buildContext(assessmentId: string, req: AssessRequest, profile: RiskProfileData): RuleContext {
+  const base = {
+    assessmentId,
+    userRef: req.userRef,
+    walletId: req.walletId,
+    amount: req.amount,
+    currency: req.currency,
+    counterpartyId: req.counterpartyId ?? "",
+    profile,
+  };
+
+  switch (req.transactionType) {
+    case TransactionType.DEPOSIT:
+      return { ...base, transactionType: TransactionType.DEPOSIT };
+    case TransactionType.BUY_CRYPTO:
+      return {
+        ...base,
+        transactionType: TransactionType.BUY_CRYPTO,
+        chain: req.chain,
+        destinationWalletId: req.destinationWalletId,
+      };
+    case TransactionType.WITHDRAW_CRYPTO:
+      return {
+        ...base,
+        transactionType: TransactionType.WITHDRAW_CRYPTO,
+        chain: req.chain,
+        destinationWalletId: req.destinationWalletId,
+      };
+  }
+}
+
 // ─── Pipeline ────────────────────────────────────────────────────────────────
 
 export async function assessTransaction(req: AssessRequest): Promise<AssessResponse> {
@@ -188,14 +222,18 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
 
   logger.info({ assessmentId, userRef: req.userRef, transactionType: req.transactionType }, "Assessment started");
 
+  // Normalise crypto-only fields for the assessment record
+  const chain = req.transactionType === TransactionType.DEPOSIT ? "" : req.chain;
+  const destinationWalletId = req.transactionType === TransactionType.DEPOSIT ? "" : req.destinationWalletId;
+
   // 1. Create in-flight assessment
   await RiskAssessment.create({
     assessmentId,
     userRef: req.userRef,
     walletId: req.walletId,
     counterpartyId: req.counterpartyId ?? "",
-    chain: req.chain ?? "",
-    destinationWalletId: req.destinationWalletId ?? "",
+    chain,
+    destinationWalletId,
     amount: req.amount,
     currency: req.currency,
     transactionType: req.transactionType,
@@ -209,30 +247,21 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
   const profile = await fetchOrCreateProfile(req.userRef, req.walletId);
   const isProfileBlocked = profile.status === ProfileStatus.BLOCKED;
 
-  // 3. Build rule context from profile snapshot
-  const ctx: RuleContext = {
-    assessmentId,
-    userRef: req.userRef,
-    walletId: req.walletId,
-    amount: req.amount,
-    currency: req.currency,
-    transactionType: req.transactionType,
-    counterpartyId: req.counterpartyId ?? "",
-    chain: req.chain ?? "",
-    destinationWalletId: req.destinationWalletId ?? "",
-    profile: {
-      userRef: profile.userRef,
-      walletIds: profile.walletIds,
-      status: profile.status,
-      onboardedAt: profile.onboardedAt,
-      declaredMonthlyVolume: profile.declaredMonthlyVolume,
-      thirtyDayAverage: profile.thirtyDayAverage,
-      crossBorderBaseline: profile.crossBorderBaseline,
-      crossBorderCount24h: profile.crossBorderCount24h,
-      totalAssessments: profile.totalAssessments,
-      lastAssessedAt: profile.lastAssessedAt,
-    },
+  // 3. Build rule context — discriminated by transaction type
+  const profileSnapshot = {
+    userRef: profile.userRef,
+    walletIds: profile.walletIds,
+    status: profile.status,
+    onboardedAt: profile.onboardedAt,
+    declaredMonthlyVolume: profile.declaredMonthlyVolume,
+    thirtyDayAverage: profile.thirtyDayAverage,
+    crossBorderBaseline: profile.crossBorderBaseline,
+    crossBorderCount24h: profile.crossBorderCount24h,
+    totalAssessments: profile.totalAssessments,
+    lastAssessedAt: profile.lastAssessedAt,
   };
+
+  const ctx = buildContext(assessmentId, req, profileSnapshot);
 
   // 4. Create RuleExecution docs BEFORE running rules (state: pending → tracks lifecycle)
   const applicableRules = getRulesForType(ctx.transactionType);
@@ -340,7 +369,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
       amount: req.amount,
       currency: req.currency,
       transactionType: req.transactionType,
-      chain: req.chain ?? "",
+      chain,
       allow: false,
       triggeredRules: triggeredSync,
     });

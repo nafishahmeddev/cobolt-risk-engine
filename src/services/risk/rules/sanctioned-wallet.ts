@@ -1,16 +1,26 @@
-import { AlertLevel, type RuleContext, RuleName, type RuleResult } from "../../../types/risk";
+import {
+  AlertLevel,
+  type RuleContext,
+  type RuleContextBuyCrypto,
+  type RuleContextWithdrawCrypto,
+  RuleName,
+  type RuleResult,
+  TransactionType,
+} from "../../../types/risk";
 import { screenAddress } from "../../amlbot";
+
+type CryptoRuleContext = RuleContextBuyCrypto | RuleContextWithdrawCrypto;
 
 interface Candidate {
   address: string;
   label: "source" | "counterparty" | "destination";
 }
 
-function buildCandidates(ctx: RuleContext): Candidate[] {
+function buildCandidates(ctx: CryptoRuleContext): Candidate[] {
   return [
     { address: ctx.walletId, label: "source" },
     ...(ctx.counterpartyId ? [{ address: ctx.counterpartyId, label: "counterparty" as const }] : []),
-    ...(ctx.destinationWalletId ? [{ address: ctx.destinationWalletId, label: "destination" as const }] : []),
+    { address: ctx.destinationWalletId, label: "destination" as const },
   ];
 }
 
@@ -20,14 +30,14 @@ function flagDetail(candidate: Candidate, sanctioned: boolean, score: number): s
 }
 
 /**
- * Screens all addresses in the transaction via AMLBot.
+ * Screens all transaction addresses via AMLBot.
  * Triggers CRITICAL if any address is sanctioned or has risk score ≥ 75.
  * Returns `deferred: true` with `metadata.requestId` when AMLBot defers —
- * the generic poller resolves via the "amlbot" poll resolver.
- * Skipped when no chain is present (fiat DEPOSIT without crypto wallet context).
+ * the generic cron resolves via the registered deferred resolver.
+ * Skipped for fiat DEPOSIT (no blockchain context).
  */
 export async function sanctionedWallet(ctx: RuleContext): Promise<RuleResult> {
-  if (!ctx.chain) {
+  if (ctx.transactionType === TransactionType.DEPOSIT) {
     return {
       rule: RuleName.SANCTIONED_WALLET,
       triggered: false,

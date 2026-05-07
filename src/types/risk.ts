@@ -58,9 +58,9 @@ export const RULE_NAMES = Object.values(RuleName);
 
 /**
  * Lifecycle status of a single risk assessment.
- * - `success`: transaction approved — all checks passed.
- * - `failed`: transaction blocked — one or more rules triggered.
- * - `pending`: AMLBot check is asynchronous; final decision delivered via client callback.
+ * - `success`: assessment completed without error. Check `allow` for the transaction decision.
+ * - `failed`: assessment could not be completed due to an internal error.
+ * - `pending`: one or more rules deferred; final decision delivered via callback.
  */
 export enum AssessmentStatus {
   SUCCESS = "success",
@@ -79,7 +79,7 @@ export enum TransactionDecision {
 export const TRANSACTION_DECISIONS = Object.values(TransactionDecision);
 
 /** Payload sent by the integrator to request a risk assessment. */
-export interface AssessRequest {
+export interface AssessRequestBase {
   /** Internal user identifier from the integrator's system. */
   userRef: string;
   /** Source wallet address or bank account identifier. */
@@ -88,26 +88,34 @@ export interface AssessRequest {
   amount: number;
   /** ISO 4217 three-letter currency code (e.g. "EUR", "BTC"). */
   currency: string;
-  /** Category of transaction — determines which rules run. */
-  transactionType: TransactionType;
   /** Optional counterparty identifier (bank, exchange, or wallet). */
   counterpartyId?: string;
-  /** Blockchain network identifier (e.g. "ETH", "BTC"). Required for crypto types. */
-  chain?: string;
-  /** Destination wallet address. Required for BUY_CRYPTO and WITHDRAW_CRYPTO. */
-  destinationWalletId?: string;
   /** Webhook URL to POST the final decision to when AMLBot completes asynchronously. */
   callbackUrl: string;
 }
 
-/**
- * Result returned to the integrator after assessment completes.
- * When `status` is `pending`, the final decision is delivered to `callbackUrl`.
- */
+export interface AssessRequestDeposit extends AssessRequestBase {
+  transactionType: TransactionType.DEPOSIT;
+}
+
+export interface AssessRequestBuyCrypto extends AssessRequestBase {
+  transactionType: TransactionType.BUY_CRYPTO;
+  chain: string;
+  destinationWalletId: string;
+}
+
+export interface AssessRequestWithdrawCrypto extends AssessRequestBase {
+  transactionType: TransactionType.WITHDRAW_CRYPTO;
+  chain: string;
+  destinationWalletId: string;
+}
+
+export type AssessRequest = AssessRequestDeposit | AssessRequestBuyCrypto | AssessRequestWithdrawCrypto;
+
 /**
  * Result returned to the integrator after assessment completes.
  * - `success`: assessment ran without error. Check `allow` for the transaction decision.
- * - `pending`: AMLBot check is asynchronous; final decision delivered to `callbackUrl`.
+ * - `pending`: async resolution in progress; final decision delivered to `callbackUrl`.
  * - `failed`: internal error — assessment could not be completed.
  */
 export type AssessResponse =
@@ -141,29 +149,35 @@ export interface RuleResult {
   metadata?: Record<string, unknown>;
 }
 
-/** Shared input passed to every rule function. All optional request fields are normalised to "" by the orchestrator. */
-export interface RuleContext {
-  /** Unique assessment identifier. */
+/** Shared input passed to every rule function. Discriminated by transactionType. */
+export interface RuleContextBase {
   assessmentId: string;
-  /** Internal user identifier. */
   userRef: string;
-  /** Source wallet address or bank account identifier. */
   walletId: string;
-  /** Transaction amount in smallest currency unit. */
   amount: number;
-  /** ISO 4217 currency code. */
   currency: string;
-  /** Transaction category. */
-  transactionType: TransactionType;
-  /** Counterparty identifier, or "" if not provided. */
+  /** Counterparty identifier, normalised to "" when absent. */
   counterpartyId: string;
-  /** Blockchain network, or "" for fiat-only transactions. */
-  chain: string;
-  /** Destination wallet address, or "" for fiat-only transactions. */
-  destinationWalletId: string;
-  /** Snapshot of the user's risk profile at the time of assessment. */
   profile: RiskProfileData;
 }
+
+export interface RuleContextDeposit extends RuleContextBase {
+  transactionType: TransactionType.DEPOSIT;
+}
+
+export interface RuleContextBuyCrypto extends RuleContextBase {
+  transactionType: TransactionType.BUY_CRYPTO;
+  chain: string;
+  destinationWalletId: string;
+}
+
+export interface RuleContextWithdrawCrypto extends RuleContextBase {
+  transactionType: TransactionType.WITHDRAW_CRYPTO;
+  chain: string;
+  destinationWalletId: string;
+}
+
+export type RuleContext = RuleContextDeposit | RuleContextBuyCrypto | RuleContextWithdrawCrypto;
 
 /** Plain-data snapshot of a user's risk profile, passed into rule evaluations. */
 export interface RiskProfileData {
