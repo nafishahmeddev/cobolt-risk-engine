@@ -1,23 +1,23 @@
 import { randomUUID } from "node:crypto";
 import { EnvConfig } from "../../config/env";
-import { RiskAssessment, RiskLedger, RiskProfile } from "../../database/primary/models";
 import type { IRiskAssessment, IRuleResultDoc } from "../../database/primary/models";
-import type { AmlBotScreenComplete } from "../amlbot";
+import { RiskAssessment, RiskLedger, RiskProfile } from "../../database/primary/models";
 import {
   AlertLevel,
   type AssessCallbackPayload,
+  AssessmentStatus,
   type AssessRequest,
   type AssessResponse,
-  AssessmentStatus,
   ProfileStatus,
   type RuleContext,
   RuleName,
   type TransactionType,
 } from "../../types/risk";
 import { logger } from "../../utils/logger";
+import type { AmlBotScreenComplete } from "../amlbot";
+import { sendAssessmentCallback } from "../callback";
 import { sendEmail } from "../email";
 import { sendSlackMessage } from "../slack";
-import { sendAssessmentCallback } from "../callback";
 import { evaluateAllRules } from "./rules";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -291,10 +291,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
  * and fires the integrator's callback URL.
  * Called exclusively by the AMLBot poller — not exposed via HTTP.
  */
-export async function finalizeAssessment(
-  assessment: IRiskAssessment,
-  amlResult: AmlBotScreenComplete,
-): Promise<void> {
+export async function finalizeAssessment(assessment: IRiskAssessment, amlResult: AmlBotScreenComplete): Promise<void> {
   const amlRuleResult: IRuleResultDoc = {
     rule: RuleName.SANCTIONED_WALLET,
     triggered: amlResult.flagged,

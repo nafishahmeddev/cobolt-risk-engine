@@ -73,7 +73,4 @@ const schema = new Schema<IRiskAssessment>(
   { collection: "risk_assessments", timestamps: false, versionKey: false },
 );
 
-export const RiskAssessment: Model<IRiskAssessment> = conn.model<IRiskAssessment>(
-  "RiskAssessment",
-  schema,
-);
+export const RiskAssessment: Model<IRiskAssessment> = conn.model<IRiskAssessment>("RiskAssessment", schema);

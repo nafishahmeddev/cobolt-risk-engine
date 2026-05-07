@@ -3,8 +3,8 @@ import { z } from "zod";
 import { auth } from "../../middleware/auth";
 import { zValidate } from "../../middleware/validator";
 import { assessTransaction } from "../../services/risk";
-import { type AssessRequest, TransactionType } from "../../types/risk";
 import type { AppBindings } from "../../types/api.types";
+import { type AssessRequest, TransactionType } from "../../types/risk";
 import { success } from "../../utils/response";
 
 const riskRouter = new Hono<AppBindings>();

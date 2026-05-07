@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { closeDb, initDb } from "./database/index";
 import { startAllCrons, stopAllCrons } from "./cron/index";
+import { closeDb, initDb } from "./database/index";
 import { errorHandler, requestId, requestLogger } from "./middleware/index";
 import { apiRouter } from "./routes/index";
 import type { AppBindings } from "./types/api.types";
