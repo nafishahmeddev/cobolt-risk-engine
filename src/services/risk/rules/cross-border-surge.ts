@@ -45,7 +45,10 @@ export async function crossBorderSurge(ctx: RuleContext): Promise<RuleResult> {
     };
   }
 
-  if (ctx.profile.crossBorderBaseline > 0 && depositVolume > ctx.profile.crossBorderBaseline * SURGE_VOLUME_MULTIPLIER) {
+  if (
+    ctx.profile.crossBorderBaseline > 0 &&
+    depositVolume > ctx.profile.crossBorderBaseline * SURGE_VOLUME_MULTIPLIER
+  ) {
     return {
       rule: RuleName.CROSS_BORDER_SURGE,
       triggered: true,
