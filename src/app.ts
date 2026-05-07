@@ -22,6 +22,6 @@ export async function startup(): Promise<void> {
 }
 
 export async function shutdown(): Promise<void> {
-  stopAllCrons();
+  await stopAllCrons();
   await closeDb();
 }

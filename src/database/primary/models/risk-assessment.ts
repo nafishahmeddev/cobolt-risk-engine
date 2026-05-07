@@ -1,10 +1,10 @@
 import { type Model, Schema } from "mongoose";
-import { AlertLevel } from "../../../types/risk";
+import { AlertLevel, RuleName, TransactionType } from "../../../types/risk";
 import { conn } from "../connection";
 
 /** Partial rule result stored while an assessment is in-flight. */
 export interface IRuleResultDoc {
-  rule: string;
+  rule: RuleName;
   triggered: boolean;
   alertLevel: AlertLevel;
   detail: string;
@@ -26,7 +26,7 @@ export interface IRiskAssessment {
   destinationWalletId: string;
   amount: number;
   currency: string;
-  transactionType: string;
+  transactionType: TransactionType;
   /** Integrator's webhook URL — carried over to the ledger on finalisation. */
   callbackUrl: string;
   /**

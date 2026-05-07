@@ -74,7 +74,7 @@ function updateProfileAsync(
 async function commitToLedger(
   assessment: IRiskAssessment,
   ruleResults: IRuleResultDoc[],
-  triggeredRules: string[],
+  triggeredRules: RuleName[],
   allow: boolean,
 ): Promise<void> {
   await RiskLedger.create({
@@ -226,7 +226,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
   const ruleResults = await evaluateAllRules(ctx);
 
   const isProfileBlocked = ctx.profile.status === ProfileStatus.BLOCKED;
-  const completedResults = ruleResults.filter((r) => !r.pending) as IRuleResultDoc[];
+  const completedResults = ruleResults.filter((r) => !r.pending);
   const triggeredCompleted = completedResults.filter((r) => r.triggered).map((r) => r.rule);
   const pendingRule = ruleResults.find((r) => r.pending);
 

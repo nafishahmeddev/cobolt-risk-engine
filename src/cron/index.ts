@@ -1,14 +1,15 @@
-import cron from "node-cron";
+import { Cron } from "croner";
 import { logger } from "../utils/logger";
 import { tick as amlbotPollTick } from "./amlbot-poll";
 
 interface CronJob {
   name: string;
+  /** Standard cron expression (seconds supported). */
   schedule: string;
   tick: () => Promise<void>;
 }
 
-/** Register all cron jobs here. One entry per job. */
+/** Add new cron jobs here. One entry per job. */
 const JOBS: CronJob[] = [
   {
     name: "amlbot-poll",
@@ -17,20 +18,48 @@ const JOBS: CronJob[] = [
   },
 ];
 
-const tasks = new Map<string, ReturnType<typeof cron.schedule>>();
+interface ManagedTask {
+  cron: Cron;
+  /** Resolves when the currently-running tick finishes. Null when idle. */
+  currentRun: Promise<void> | null;
+}
+
+const tasks: ManagedTask[] = [];
 
 export function startAllCrons(): void {
   for (const job of JOBS) {
-    const task = cron.schedule(job.schedule, job.tick);
-    tasks.set(job.name, task);
+    const managed: ManagedTask = { cron: null!, currentRun: null };
+
+    managed.cron = new Cron(
+      job.schedule,
+      {
+        name: job.name,
+        protect: true,
+        catch: (err) => logger.error({ name: job.name, err }, "Cron tick error"),
+      },
+      () => {
+        managed.currentRun = job.tick().finally(() => {
+          managed.currentRun = null;
+        });
+      },
+    );
+
+    tasks.push(managed);
     logger.info({ name: job.name, schedule: job.schedule }, "Cron started");
   }
 }
 
-export function stopAllCrons(): void {
-  for (const [name, task] of tasks) {
-    task.stop();
-    logger.info({ name }, "Cron stopped");
-  }
-  tasks.clear();
+/**
+ * Stop scheduling new ticks and wait for any in-progress tick to finish.
+ * Safe to await in a shutdown handler — guarantees clean exit.
+ */
+export async function stopAllCrons(): Promise<void> {
+  await Promise.all(
+    tasks.map(async ({ cron, currentRun }) => {
+      cron.stop();
+      if (currentRun) await currentRun;
+      logger.info({ name: cron.name }, "Cron stopped");
+    }),
+  );
+  tasks.length = 0;
 }

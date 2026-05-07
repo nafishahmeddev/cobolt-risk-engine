@@ -14,7 +14,8 @@
       "WebFetch(domain:amlbot.com)",
       "WebFetch(domain:app.amlbot.com)",
       "WebFetch(domain:apitracker.io)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(npm remove *)"
     ]
   }
 }

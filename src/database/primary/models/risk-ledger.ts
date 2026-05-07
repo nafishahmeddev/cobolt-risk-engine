@@ -1,13 +1,7 @@
 import { type Model, Schema } from "mongoose";
-import { AlertLevel } from "../../../types/risk";
+import { RuleName, TransactionType } from "../../../types/risk";
 import { conn } from "../connection";
-
-export interface IRuleResultDoc {
-  rule: string;
-  triggered: boolean;
-  alertLevel: AlertLevel;
-  detail: string;
-}
+import type { IRuleResultDoc } from "./risk-assessment";
 
 /**
  * Immutable audit record written once when an assessment finalises.
@@ -24,13 +18,13 @@ export interface IRiskLedger {
   destinationWalletId: string;
   amount: number;
   currency: string;
-  transactionType: string;
+  transactionType: TransactionType;
   /** Integrator's webhook URL — retained for audit trail. */
   callbackUrl: string;
   /** True if the transaction was approved; false if blocked. */
   allow: boolean;
   /** Names of all rules that fired. Empty = transaction passed all checks. */
-  triggeredRules: string[];
+  triggeredRules: RuleName[];
   /** Full rule-by-rule breakdown. Bounded to ≤7 items (one per rule). */
   ruleResults: IRuleResultDoc[];
   /** When the original assess request was received (copied from pending record). */
