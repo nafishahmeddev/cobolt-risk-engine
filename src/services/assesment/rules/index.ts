@@ -1,4 +1,4 @@
-import { AlertLevel, RuleName, TransactionType } from "../../../types/risk";
+import { RuleName, TransactionType, AlertLevel } from "@app/database/primary";
 import { recheckAddress } from "../../amlbot";
 import { crossBorderSurge } from "./cross-border-surge";
 import { highFrequency } from "./high-frequency";

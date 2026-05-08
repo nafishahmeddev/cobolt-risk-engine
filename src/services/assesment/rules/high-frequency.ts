@@ -1,5 +1,6 @@
-import { RiskLedger } from "../../../database/primary/models/risk-ledger";
-import { AlertLevel, type RuleContext, RuleName, type RuleResult } from "../../../types/risk";
+import { AlertLevel, RuleName, RuleResult } from "@app/database/primary";
+import { RiskLedger } from "../../../database/primary/models/ledger";
+import { RuleContext } from "@app/types/assesment";
 
 const WINDOW_10MIN_MS = 10 * 60 * 1000;
 const WINDOW_1HR_MS = 60 * 60 * 1000;

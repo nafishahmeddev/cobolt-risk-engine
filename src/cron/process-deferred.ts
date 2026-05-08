@@ -1,8 +1,8 @@
-import { RuleResultStatus } from "@app/types/risk";
+import { RuleResultStatus } from "@app/database/primary";
 import type { IRuleResultDoc } from "../database/primary/models";
-import { RiskAssessment } from "../database/primary/models";
-import { finalizeAssessment } from "../services/risk";
-import { getDeferredResolver } from "../services/risk/rules/registry";
+import { Assesment } from "../database/primary/models";
+import { finalizeAssessment } from "../services/assesment";
+import { getDeferredResolver } from "../services/assesment/rules/registry";
 import { logger } from "../utils/logger";
 
 const BATCH_LIMIT = 50;
@@ -23,7 +23,7 @@ async function resolveDeferredRule(assessmentId: string, ruleResult: IRuleResult
   }
 
   // Update the rule result entry in-place: pending → completed
-  await RiskAssessment.updateOne(
+  await Assesment.updateOne(
     { assessmentId, "ruleResults.rule": ruleResult.rule, "ruleResults.status": RuleResultStatus.DEFERRED },
     {
       $set: {
@@ -41,7 +41,7 @@ async function resolveDeferredRule(assessmentId: string, ruleResult: IRuleResult
 }
 
 export async function tick(): Promise<void> {
-  const pending = await RiskAssessment.find({ "ruleResults.status": RuleResultStatus.DEFERRED }, null, {
+  const pending = await Assesment.find({ "ruleResults.status": RuleResultStatus.DEFERRED }, null, {
     sort: { createdAt: 1 },
     limit: BATCH_LIMIT,
   }).lean();

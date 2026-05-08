@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { riskRouter } from "./risk";
+import { assessRouter } from "./assess";
 
 const v1Router = new Hono();
 
-v1Router.route("/risk", riskRouter);
+v1Router.route("/asses", assessRouter);
 
 export { v1Router };

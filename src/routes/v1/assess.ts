@@ -2,14 +2,16 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { auth } from "../../middleware/auth";
 import { zValidate } from "../../middleware/validator";
-import { assessTransaction } from "../../services/risk";
+import { assessTransaction } from "../../services/assesment";
 import type { AppBindings } from "../../types/api.types";
-import { type AssessRequest, TransactionType } from "../../types/risk";
+import { type AssessRequest } from "../../types/assesment";
 import { success } from "../../utils/response";
+import { TransactionType } from "@app/database/primary";
 
-const riskRouter = new Hono<AppBindings>();
+const assessRouter = new Hono<AppBindings>();
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
+
 
 const commonFields = {
   userRef: z.string().min(1),
@@ -43,16 +45,17 @@ const assessSchema = z.discriminatedUnion("transactionType", [
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
 /**
- * POST /api/v1/risk/assess
+ * POST /api/v1/assesment
  * Submit a transaction for AML risk assessment.
  * Returns synchronously (success/failed) or asynchronously (pending).
  * When pending, the final result is POSTed to the provided callbackUrl
  * once the AMLBot poller resolves the check.
  */
-riskRouter.post("/assess", auth, zValidate("json", assessSchema), async (c) => {
+assessRouter.post("/", auth, zValidate("json", assessSchema), async (c) => {
   const data = c.req.valid("json");
   const response = await assessTransaction(data as AssessRequest);
   return success(c, response);
 });
 
-export { riskRouter };
+
+export { assessRouter };

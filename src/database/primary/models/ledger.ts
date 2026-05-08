@@ -1,7 +1,7 @@
 import { type Model, Schema } from "mongoose";
-import { AlertLevel, type RuleName, type TransactionType } from "../../../types/risk";
 import { conn } from "../connection";
-import type { IRuleResultDoc } from "./risk-assessment";
+import type { IRuleResultDoc } from "./assesments";
+import { AlertLevel, type RuleName, type TransactionType } from "@app/database/primary";
 
 /**
  * Immutable audit record written once when an assessment finalises.
@@ -61,7 +61,7 @@ const schema = new Schema<IRiskLedger>(
     ruleResults: { type: [ruleResultSchema], default: [] },
     createdAt: { type: Date, required: true, index: true },
   },
-  { collection: "risk_ledger", timestamps: false, versionKey: false },
+  { collection: "ledger", timestamps: false, versionKey: false },
 );
 
 export const RiskLedger: Model<IRiskLedger> = conn.model<IRiskLedger>("RiskLedger", schema);

@@ -22,7 +22,7 @@ export type AmlBotScreenResult = AmlBotScreenComplete | AmlBotScreenPending;
 interface AmlBotResponse {
   /** AMLBot's internal request identifier. Present in both initial and recheck responses. */
   request_id: string;
-  risk_score: number;
+  score: number;
   sanctioned: boolean;
   /** `"in_progress"` while processing, `"complete"` when result is ready. */
   status: "in_progress" | "complete";
@@ -35,9 +35,9 @@ function parseResponse(data: AmlBotResponse): AmlBotScreenResult {
 
   return {
     pending: false,
-    flagged: data.sanctioned || data.risk_score >= 75,
+    flagged: data.sanctioned || data.score >= 75,
     sanctioned: data.sanctioned,
-    riskScore: data.risk_score,
+    riskScore: data.score,
   };
 }
 

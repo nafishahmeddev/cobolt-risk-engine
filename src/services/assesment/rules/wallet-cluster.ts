@@ -1,4 +1,5 @@
-import { AlertLevel, type RuleContext, RuleName, type RuleResult } from "../../../types/risk";
+import { RuleResult, RuleName, AlertLevel } from "@app/database/primary";
+import { RuleContext } from "@app/types/assesment";
 
 /** Minimum number of linked wallets that indicates suspicious clustering activity. */
 const WALLET_CLUSTER_THRESHOLD = 3;

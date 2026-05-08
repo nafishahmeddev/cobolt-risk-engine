@@ -1,39 +1,27 @@
 import { randomUUID } from "node:crypto";
 import { EnvConfig } from "../../config/env";
-import type { IRuleResultDoc } from "../../database/primary/models";
-import { RiskAssessment, RiskLedger, RiskProfile } from "../../database/primary/models";
-import {
-  AlertLevel,
-  type AssessCallbackPayload,
-  AssessmentStatus,
-  type AssessRequest,
-  type AssessResponse,
-  ProfileStatus,
-  type RiskProfileData,
-  type RuleContext,
-  type RuleName,
-  type RuleResult,
-  RuleResultStatus,
-  TransactionType,
-} from "../../types/risk";
 import { logger } from "../../utils/logger";
 import { sendAssessmentCallback } from "../callback";
 import { sendEmail } from "../email";
 import { sendSlackMessage } from "../slack";
 import { evaluateAllRules, getRulesForType } from "./rules";
+import { RuleResultStatus, AssessmentStatus, IRuleResultDoc, RuleName, Assesment, TransactionType, AlertLevel, RuleResult, ProfileStatus } from "@app/database/primary";
+import { IProfile, Profile } from "@app/database/primary";
+import { AssessRequest, RuleContext, AssessResponse, AssessCallbackPayload } from "@app/types/assesment";
+import { RiskLedger } from "@app/database/primary";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function generateAssessmentId(): string {
-  return `risk_${randomUUID().replace(/-/g, "").slice(0, 18)}`;
+  return `${randomUUID().replace(/-/g, "").slice(0, 18)}`;
 }
 
 async function fetchOrCreateProfile(userRef: string, walletId: string) {
-  const existing = await RiskProfile.findOne({ userRef });
+  const existing = await Profile.findOne({ userRef });
   if (existing) return existing;
 
   const now = new Date();
-  const profile = await RiskProfile.create({
+  const profile = await Profile.create({
     userRef,
     walletIds: [walletId],
     status: ProfileStatus.ACTIVE,
@@ -44,6 +32,7 @@ async function fetchOrCreateProfile(userRef: string, walletId: string) {
     crossBorderCount24h: 0,
     totalAssessments: 0,
     lastAssessedAt: now,
+    declaredCountry: "",
   });
 
   logger.info({ userRef, walletId }, "Risk profile created");
@@ -61,7 +50,7 @@ function updateProfileAsync(
 
   const newAverage = oldAverage === 0 ? amount : Math.round(oldAverage * 0.97 + amount * 0.03);
 
-  RiskProfile.updateOne(
+  Profile.updateOne(
     { userRef },
     {
       $set: {
@@ -80,7 +69,7 @@ async function commitToLedger(
   triggeredRules: RuleName[],
   allow: boolean,
 ): Promise<void> {
-  const assessment = await RiskAssessment.findOne({ assessmentId });
+  const assessment = await Assesment.findOne({ assessmentId });
   if (!assessment) {
     logger.warn({ assessmentId }, "Assessment already finalised — skipping ledger commit");
     return;
@@ -103,7 +92,7 @@ async function commitToLedger(
     createdAt: assessment.createdAt,
   });
 
-  await RiskAssessment.deleteOne({ assessmentId });
+  await Assesment.deleteOne({ assessmentId });
 }
 
 interface NotificationPayload {
@@ -164,10 +153,10 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => {});
+  }).catch(() => { });
 
   sendEmail({
-    email: "risk-team@company.com",
+    email: "risk-team@cobat.io",
     subject: `[FLAGGED] Risk Assessment — ${assessmentId}`,
     content: [
       `Assessment ID    : ${assessmentId}`,
@@ -179,12 +168,12 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 // ─── Context builder ─────────────────────────────────────────────────────────
 
-function buildContext(assessmentId: string, req: AssessRequest, profile: RiskProfileData): RuleContext {
+function buildContext(assessmentId: string, req: AssessRequest, profile: IProfile): RuleContext {
   const base = {
     assessmentId,
     userRef: req.userRef,
@@ -231,7 +220,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
   const applicableRules = getRulesForType(req.transactionType);
 
   // 1. Create in-flight assessment
-  await RiskAssessment.create({
+  await Assesment.create({
     assessmentId,
     userRef: req.userRef,
     walletId: req.walletId,
@@ -271,6 +260,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
     crossBorderCount24h: profile.crossBorderCount24h,
     totalAssessments: profile.totalAssessments,
     lastAssessedAt: profile.lastAssessedAt,
+    declaredCountry: profile.declaredCountry,
   };
 
   const ctx = buildContext(assessmentId, req, profileSnapshot);
@@ -282,7 +272,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
     const message = err instanceof Error ? err.message : String(err);
     logger.error({ assessmentId, err }, "Assessment failed — rule evaluation threw");
 
-    await RiskAssessment.updateOne(
+    await Assesment.updateOne(
       { assessmentId, "ruleResults.rule": { $in: applicableRules.map(({ name }) => name) } },
       {
         $set: {
@@ -325,7 +315,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
     }
   }
   // 7. Persist assessment ruleResults
-  await RiskAssessment.updateOne({ assessmentId }, { $set: { ruleResults: assessmentResults } });
+  await Assesment.updateOne({ assessmentId }, { $set: { ruleResults: assessmentResults } });
 
   // 8. Early block: profile blocked or any completed rule triggered
   const triggeredSync = assessmentResults
@@ -387,7 +377,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
  * dispatches notifications, and sends the callback to the integrator.
  */
 export async function finalizeAssessment(assessmentId: string): Promise<void> {
-  const assessment = await RiskAssessment.findOne({ assessmentId });
+  const assessment = await Assesment.findOne({ assessmentId });
   if (!assessment) {
     logger.warn({ assessmentId }, "finalizeAssessment: already finalised");
     return;
@@ -399,7 +389,7 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
   await commitToLedger(assessmentId, assessment.ruleResults, triggeredRules, allow);
 
   // Load profile for accurate wallet list and rolling average
-  const profile = await RiskProfile.findOne({ userRef: assessment.userRef });
+  const profile = await Profile.findOne({ userRef: assessment.userRef });
   if (profile) {
     updateProfileAsync(
       assessment.userRef,
@@ -433,5 +423,5 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
     triggeredRules,
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
 }
