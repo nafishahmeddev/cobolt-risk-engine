@@ -22,6 +22,11 @@ type EmailResponse = {
 };
 
 export async function sendEmail(data: EmailPayload): Promise<EmailResponse | null> {
+  if (EnvConfig.NODE_ENV === "development") {
+    logger.info({ data }, "Email sent");
+    return null;
+  }
+
   const { requestId } = getTrace();
 
   const form = new FormData();

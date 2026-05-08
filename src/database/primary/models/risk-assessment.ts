@@ -1,8 +1,7 @@
 import { type Model, Schema } from "mongoose";
-import { AlertLevel, type RuleName, type TransactionType } from "../../../types/risk";
+import { AlertLevel, RuleResultStatus, type RuleName, type TransactionType } from "../../../types/risk";
 import { conn } from "../connection";
 
-export type RuleResultStatus = "pending" | "completed";
 
 /**
  * Unified rule result within an in-flight assessment.
@@ -14,10 +13,11 @@ export interface IRuleResultDoc {
   rule: RuleName;
   status: RuleResultStatus;
   triggered: boolean;
-  alertLevel: AlertLevel;
-  detail: string;
-  /** Populated when status is "pending" — consumed by the rule's deferred resolver. */
+  alertLevel?: AlertLevel;
+  detail?: string;
   metadata?: Record<string, unknown>;
+  startedAt?: Date;
+  completedAt?: Date;
 }
 
 /**
@@ -46,11 +46,13 @@ export interface IRiskAssessment {
 const ruleResultSchema = new Schema<IRuleResultDoc>(
   {
     rule: { type: String, required: true },
-    status: { type: String, enum: ["pending", "completed"], required: true },
+    status: { type: String, enum: Object.values(RuleResultStatus), required: true },
     triggered: { type: Boolean, required: true },
     alertLevel: { type: String, enum: Object.values(AlertLevel), required: true },
     detail: { type: String, default: "" },
     metadata: { type: Schema.Types.Mixed },
+    startedAt: { type: Date },
+    completedAt: { type: Date },
   },
   { _id: false },
 );

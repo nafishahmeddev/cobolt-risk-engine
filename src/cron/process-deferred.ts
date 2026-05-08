@@ -1,12 +1,13 @@
+import { RuleResultStatus } from "@app/types/risk";
 import type { IRuleResultDoc } from "../database/primary/models";
-import { RiskAssessment, RuleExecution } from "../database/primary/models";
+import { RiskAssessment } from "../database/primary/models";
 import { finalizeAssessment } from "../services/risk";
 import { getDeferredResolver } from "../services/risk/rules/registry";
 import { logger } from "../utils/logger";
 
 const BATCH_LIMIT = 50;
 
-async function resolvePendingRule(assessmentId: string, ruleResult: IRuleResultDoc): Promise<boolean> {
+async function resolveDeferredRule(assessmentId: string, ruleResult: IRuleResultDoc): Promise<boolean> {
   const resolver = getDeferredResolver(ruleResult.rule);
 
   if (!resolver) {
@@ -23,29 +24,16 @@ async function resolvePendingRule(assessmentId: string, ruleResult: IRuleResultD
 
   // Update the rule result entry in-place: pending → completed
   await RiskAssessment.updateOne(
-    { assessmentId, "ruleResults.rule": ruleResult.rule, "ruleResults.status": "pending" },
+    { assessmentId, "ruleResults.rule": ruleResult.rule, "ruleResults.status": RuleResultStatus.DEFERRED },
     {
       $set: {
-        "ruleResults.$.status": "completed",
+        "ruleResults.$.status": RuleResultStatus.COMPLETED,
         "ruleResults.$.triggered": outcome.result.triggered,
         "ruleResults.$.alertLevel": outcome.result.alertLevel,
         "ruleResults.$.detail": outcome.result.detail,
+        "ruleResults.$.completedAt": new Date(),
       },
       $unset: { "ruleResults.$.metadata": "" },
-    },
-  );
-
-  // Update RuleExecution record
-  await RuleExecution.updateOne(
-    { executionId: `${assessmentId}_${ruleResult.rule}` },
-    {
-      $set: {
-        state: "completed",
-        triggered: outcome.result.triggered,
-        alertLevel: outcome.result.alertLevel,
-        detail: outcome.result.detail,
-        completedAt: new Date(),
-      },
     },
   );
 
@@ -53,7 +41,7 @@ async function resolvePendingRule(assessmentId: string, ruleResult: IRuleResultD
 }
 
 export async function tick(): Promise<void> {
-  const pending = await RiskAssessment.find({ "ruleResults.status": "pending" }, null, {
+  const pending = await RiskAssessment.find({ "ruleResults.status": RuleResultStatus.DEFERRED }, null, {
     sort: { createdAt: 1 },
     limit: BATCH_LIMIT,
   }).lean();
@@ -63,13 +51,15 @@ export async function tick(): Promise<void> {
   logger.info({ count: pending.length }, "process-deferred: processing pending assessments");
 
   for (const assessment of pending) {
-    const pendingRules = (assessment.ruleResults as IRuleResultDoc[]).filter((r) => r.status === "pending");
+    const deferredRules = (assessment.ruleResults as IRuleResultDoc[]).filter(
+      (r) => r.status === RuleResultStatus.DEFERRED,
+    );
 
     try {
       let allResolved = true;
 
-      for (const ruleResult of pendingRules) {
-        const resolved = await resolvePendingRule(assessment.assessmentId, ruleResult);
+      for (const ruleResult of deferredRules) {
+        const resolved = await resolveDeferredRule(assessment.assessmentId, ruleResult);
         if (!resolved) allResolved = false;
       }
 

@@ -1,18 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { EnvConfig } from "../../config/env";
 import type { IRuleResultDoc } from "../../database/primary/models";
-import { RiskAssessment, RiskLedger, RiskProfile, RuleExecution } from "../../database/primary/models";
+import { RiskAssessment, RiskLedger, RiskProfile } from "../../database/primary/models";
 import {
-  AlertLevel,
   type AssessCallbackPayload,
-  AssessmentStatus,
   type AssessRequest,
   type AssessResponse,
-  ProfileStatus,
   type RiskProfileData,
   type RuleContext,
   type RuleName,
   type RuleResult,
+
+  AlertLevel,
+  AssessmentStatus,
+  ProfileStatus,
+  RuleResultStatus,
   TransactionType,
 } from "../../types/risk";
 import { logger } from "../../utils/logger";
@@ -163,7 +165,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => {});
+  }).catch(() => { });
 
   sendEmail({
     email: "risk-team@company.com",
@@ -178,7 +180,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 // ─── Context builder ─────────────────────────────────────────────────────────
@@ -226,6 +228,8 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
   const chain = req.transactionType === TransactionType.DEPOSIT ? "" : req.chain;
   const destinationWalletId = req.transactionType === TransactionType.DEPOSIT ? "" : req.destinationWalletId;
 
+  const applicableRules = getRulesForType(req.transactionType);
+
   // 1. Create in-flight assessment
   await RiskAssessment.create({
     assessmentId,
@@ -238,7 +242,15 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
     currency: req.currency,
     transactionType: req.transactionType,
     callbackUrl: req.callbackUrl,
-    ruleResults: [],
+    ruleResults: applicableRules.map(({ name }) => ({
+      rule: name,
+      status: RuleResultStatus.PENDING,
+      triggered: false,
+      alertLevel: AlertLevel.MEDIUM,
+      detail: "",
+      metadata: {},
+      startedAt,
+    })),
     createdAt: startedAt,
   });
 
@@ -261,23 +273,6 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
   };
 
   const ctx = buildContext(assessmentId, req, profileSnapshot);
-
-  // 4. Create RuleExecution docs BEFORE running rules (state: pending → tracks lifecycle)
-  const applicableRules = getRulesForType(ctx.transactionType);
-
-  await RuleExecution.insertMany(
-    applicableRules.map(({ name }) => ({
-      executionId: `${assessmentId}_${name}`,
-      assessmentId,
-      rule: name,
-      state: "pending" as const,
-      triggered: false,
-      alertLevel: "medium" as const,
-      detail: "",
-      startedAt,
-    })),
-  );
-
   // 5. Run all applicable rules in parallel
   let ruleResults: RuleResult[];
   try {
@@ -286,78 +281,57 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
     const message = err instanceof Error ? err.message : String(err);
     logger.error({ assessmentId, err }, "Assessment failed — rule evaluation threw");
 
-    // Mark all pending rule executions as failed
-    await RuleExecution.updateMany(
-      { assessmentId, state: "pending" },
+    await RiskAssessment.updateOne(
+      { assessmentId, "ruleResults.rule": { $in: applicableRules.map(({ name }) => name) } },
       {
         $set: {
-          state: "failed",
-          triggered: false,
-          alertLevel: AlertLevel.MEDIUM,
-          detail: message,
-          completedAt: new Date(),
+          status: AssessmentStatus.FAILED,
+          "ruleResults.$..status": RuleResultStatus.FAILED,
+          "ruleResults.$..triggered": false,
+          "ruleResults.$..alertLevel": AlertLevel.MEDIUM,
+          "ruleResults.$..detail": message,
+          "ruleResults.$..completedAt": new Date(),
         },
       },
     );
-
     return { status: AssessmentStatus.FAILED, assessmentId };
   }
 
   // 6. Process results: build unified ruleResults with status, update RuleExecution
   const assessmentResults: IRuleResultDoc[] = [];
   let hasPending = false;
-  const updates: Promise<unknown>[] = [];
 
   for (const result of ruleResults) {
-    const executionId = `${assessmentId}_${result.rule}`;
-
     if (result.deferred) {
       hasPending = true;
       assessmentResults.push({
         rule: result.rule,
-        status: "pending",
+        status: RuleResultStatus.DEFERRED,
         triggered: false,
         alertLevel: result.alertLevel,
         detail: result.detail,
         metadata: result.metadata ?? {},
       });
-      updates.push(
-        RuleExecution.updateOne({ executionId }, { $set: { state: "deferred", metadata: result.metadata } }),
-      );
     } else {
       assessmentResults.push({
         rule: result.rule,
-        status: "completed",
+        status: RuleResultStatus.COMPLETED,
         triggered: result.triggered,
         alertLevel: result.alertLevel,
         detail: result.detail,
+        completedAt: new Date(),
       });
-      updates.push(
-        RuleExecution.updateOne(
-          { executionId },
-          {
-            $set: {
-              state: "completed",
-              triggered: result.triggered,
-              alertLevel: result.alertLevel,
-              detail: result.detail,
-              completedAt: new Date(),
-            },
-          },
-        ),
-      );
+
     }
   }
-
   // 7. Persist assessment ruleResults
-  updates.push(RiskAssessment.updateOne({ assessmentId }, { $set: { ruleResults: assessmentResults } }));
-  await Promise.all(updates);
+  await RiskAssessment.updateOne({ assessmentId }, { $set: { ruleResults: assessmentResults } });
 
   // 8. Early block: profile blocked or any completed rule triggered
-  const triggeredSync = assessmentResults.filter((r) => r.status === "completed" && r.triggered).map((r) => r.rule);
+  const triggeredSync = assessmentResults.filter((r) => r.status === RuleResultStatus.COMPLETED && r.triggered).map((r) => r.rule);
 
   if ((isProfileBlocked || triggeredSync.length > 0) && !hasPending) {
-    const committed = assessmentResults.filter((r) => r.status === "completed");
+    const committed = assessmentResults.filter((r) => r.status === RuleResultStatus.COMPLETED);
     await commitToLedger(assessmentId, committed, triggeredSync, false);
     updateProfileAsync(req.userRef, req.walletId, req.amount, profile.walletIds, profile.thirtyDayAverage);
     dispatchNotifications({
@@ -385,9 +359,9 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
     logger.info(
       {
         assessmentId,
-        pendingRules: assessmentResults.filter((r) => r.status === "pending").map((r) => r.rule),
+        deferredRules: assessmentResults.filter((r) => r.status === RuleResultStatus.DEFERRED).map((r) => r.rule),
       },
-      "Assessment pending — rules require async resolution",
+      "Assessment deferred — rules require async resolution",
     );
     return { status: AssessmentStatus.PENDING, assessmentId };
   }
@@ -457,5 +431,5 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
     triggeredRules,
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
 }

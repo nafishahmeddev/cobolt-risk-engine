@@ -78,6 +78,16 @@ export enum TransactionDecision {
 
 export const TRANSACTION_DECISIONS = Object.values(TransactionDecision);
 
+/** Lifecycle status of a single rule result within an assessment. */
+export enum RuleResultStatus {
+  DEFERRED = "deferred",
+  COMPLETED = "completed",
+  PENDING = "pending",
+  FAILED = "failed",
+}
+
+export const RULE_RESULT_STATUSES = Object.values(RuleResultStatus);
+
 /** Payload sent by the integrator to request a risk assessment. */
 export interface AssessRequestBase {
   /** Internal user identifier from the integrator's system. */
