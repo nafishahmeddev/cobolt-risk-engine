@@ -1,5 +1,5 @@
 import { AlertLevel, RuleName, type RuleResult, TransactionType } from "@app/database/primary";
-import type { RuleContext, RuleContextBuyCrypto, RuleContextWithdrawCrypto } from "@app/types/assesment";
+import type { RuleContext, RuleContextBuyCrypto, RuleContextWithdrawCrypto } from "@app/types/assesment.types";
 import { screenAddress } from "../../amlbot";
 
 type CryptoRuleContext = RuleContextBuyCrypto | RuleContextWithdrawCrypto;

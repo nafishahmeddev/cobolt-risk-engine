@@ -1,6 +1,6 @@
 import { AlertLevel, RuleName, type RuleResult, TransactionType } from "@app/database/primary";
-import type { RuleContext } from "@app/types/assesment";
-import { RiskLedger } from "../../../database/primary/models/ledger";
+import type { RuleContext } from "@app/types/assesment.types";
+import { Ledger } from "../../../database/primary/models/ledger";
 
 const WINDOW_24HR_MS = 24 * 60 * 60 * 1000;
 
@@ -31,7 +31,7 @@ export async function crossBorderSurge(ctx: RuleContext): Promise<RuleResult> {
   }
 
   //for now we are just checking past histories later we will check in different sources like ( internal services)
-  const [stats] = await RiskLedger.aggregate<{ count: number; volume: number }>([
+  const [stats] = await Ledger.aggregate<{ count: number; volume: number }>([
     {
       $match: {
         userRef: ctx.userRef,

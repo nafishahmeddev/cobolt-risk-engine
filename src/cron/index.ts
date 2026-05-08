@@ -1,6 +1,7 @@
 import { Cron } from "croner";
 import { logger } from "../utils/logger";
 import { tick as processDeferredTick } from "./process-deferred";
+import { tick as dailyReportTick } from "./daily-report";
 
 interface CronJob {
   name: string;
@@ -16,6 +17,12 @@ const JOBS: CronJob[] = [
     // Every 30 seconds — resolves deferred rule evaluations (poll-based steps)
     schedule: "*/30 * * * * *",
     tick: processDeferredTick,
+  },
+  {
+    name: "daily-report",
+    // Every day at 12 AM
+    schedule: "0 0 * * *",
+    tick: () => dailyReportTick()
   },
 ];
 

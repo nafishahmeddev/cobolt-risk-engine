@@ -7,13 +7,13 @@ import {
   type IRuleResultDoc,
   Profile,
   ProfileStatus,
-  RiskLedger,
+  Ledger,
   type RuleName,
   type RuleResult,
   RuleResultStatus,
   TransactionType,
 } from "@app/database/primary";
-import type { AssessCallbackPayload, AssessRequest, AssessResponse, RuleContext } from "@app/types/assesment";
+import type { AssessCallbackPayload, AssessRequest, AssessResponse, RuleContext } from "@app/types/assesment.types";
 import { EnvConfig } from "../../config/env";
 import { logger } from "../../utils/logger";
 import { sendAssessmentCallback } from "../callback";
@@ -60,7 +60,7 @@ async function commitToLedger(
     return;
   }
 
-  await RiskLedger.create({
+  await Ledger.create({
     assessmentId: assessment.assessmentId,
     userRef: assessment.userRef,
     walletId: assessment.walletId,
@@ -138,7 +138,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => {});
+  }).catch(() => { });
 
   sendEmail({
     email: "risk-team@cobat.io",
@@ -153,7 +153,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 // ─── Context builder ─────────────────────────────────────────────────────────
@@ -423,5 +423,5 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
     triggeredRules,
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
 }

@@ -1,5 +1,5 @@
 import { AlertLevel, RuleName, type RuleResult } from "@app/database/primary";
-import type { RuleContext } from "@app/types/assesment";
+import type { RuleContext } from "@app/types/assesment.types";
 
 /** Block if transaction exceeds 2× the customer's declared monthly volume. */
 const MAX_DECLARED_VOLUME_RATIO = 2;

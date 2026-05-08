@@ -1,4 +1,4 @@
-import type { AssessCallbackPayload } from "../types/assesment";
+import type { AssessCallbackPayload } from "../types/assesment.types";
 import { logger } from "../utils/logger";
 import { getTrace } from "../utils/trace";
 

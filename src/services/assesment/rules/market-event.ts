@@ -1,5 +1,5 @@
 import { AlertLevel, RuleName, type RuleResult } from "@app/database/primary";
-import type { RuleContext } from "@app/types/assesment";
+import type { RuleContext } from "@app/types/assesment.types";
 
 /** Only check for market events if the transaction exceeds EUR 100,000 (in minor units). */
 const MARKET_EVENT_MIN_TX_AMOUNT = 10_000_000;

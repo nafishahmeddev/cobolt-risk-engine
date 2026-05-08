@@ -5,7 +5,7 @@ import { auth } from "../../middleware/auth";
 import { zValidate } from "../../middleware/validator";
 import { assessTransaction } from "../../services/assesment";
 import type { AppBindings } from "../../types/api.types";
-import type { AssessRequest } from "../../types/assesment";
+import type { AssessRequest } from "../../types/assesment.types";
 import { success } from "../../utils/response";
 
 const riskRouter = new Hono<AppBindings>();

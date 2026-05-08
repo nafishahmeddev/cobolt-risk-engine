@@ -8,7 +8,7 @@ import { ALERT_LEVELS, type IRuleResultDoc } from "./assesments";
  * Never updated after creation — presence here = assessment complete.
  * `allow` captures the final decision; `triggeredRules` lists what fired.
  */
-export interface IRiskLedger {
+export interface ILedger {
   /** Unique assessment identifier. */
   assessmentId: string;
   userRef: string;
@@ -43,7 +43,7 @@ const ruleResultSchema = new Schema<IRuleResultDoc>(
   { _id: false },
 );
 
-const schema = new Schema<IRiskLedger>(
+const schema = new Schema<ILedger>(
   {
     assessmentId: { type: String, required: true, unique: true },
     userRef: { type: String, required: true, index: true },
@@ -64,4 +64,4 @@ const schema = new Schema<IRiskLedger>(
   { collection: "ledger", timestamps: false, versionKey: false },
 );
 
-export const RiskLedger: Model<IRiskLedger> = conn.model<IRiskLedger>("Ledger", schema);
+export const Ledger: Model<ILedger> = conn.model<ILedger>("Ledger", schema);

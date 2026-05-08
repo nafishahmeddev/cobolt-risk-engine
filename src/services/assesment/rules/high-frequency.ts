@@ -1,6 +1,6 @@
 import { AlertLevel, RuleName, type RuleResult } from "@app/database/primary";
-import type { RuleContext } from "@app/types/assesment";
-import { RiskLedger } from "../../../database/primary/models/ledger";
+import type { RuleContext } from "@app/types/assesment.types";
+import { Ledger } from "../../../database/primary/models/ledger";
 
 const WINDOW_10MIN_MS = 10 * 60 * 1000;
 const WINDOW_1HR_MS = 60 * 60 * 1000;
@@ -22,8 +22,8 @@ export async function highFrequency(ctx: RuleContext): Promise<RuleResult> {
   const now = Date.now();
 
   const [txCount10Min, txCount1Hr] = await Promise.all([
-    RiskLedger.countDocuments({ userRef: ctx.userRef, createdAt: { $gte: new Date(now - WINDOW_10MIN_MS) } }),
-    RiskLedger.countDocuments({ userRef: ctx.userRef, createdAt: { $gte: new Date(now - WINDOW_1HR_MS) } }),
+    Ledger.countDocuments({ userRef: ctx.userRef, createdAt: { $gte: new Date(now - WINDOW_10MIN_MS) } }),
+    Ledger.countDocuments({ userRef: ctx.userRef, createdAt: { $gte: new Date(now - WINDOW_1HR_MS) } }),
   ]);
 
   if (txCount10Min >= MAX_TX_PER_10MIN) {

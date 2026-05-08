@@ -1,5 +1,5 @@
 import { AlertLevel, RuleName, type RuleResult } from "@app/database/primary";
-import type { RuleContext } from "@app/types/assesment";
+import type { RuleContext } from "@app/types/assesment.types";
 
 /** Block if a single transaction is more than 3× the user's monthly average. */
 const MONTHLY_AVG_SPIKE_RATIO = 3;
