@@ -1,7 +1,6 @@
 import { type Model, Schema } from "mongoose";
-import { AlertLevel, RuleResultStatus, type RuleName, type TransactionType } from "../../../types/risk";
+import { AlertLevel, type RuleName, RuleResultStatus, type TransactionType } from "../../../types/risk";
 import { conn } from "../connection";
-
 
 /**
  * Unified rule result within an in-flight assessment.

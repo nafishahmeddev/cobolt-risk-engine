@@ -3,17 +3,16 @@ import { EnvConfig } from "../../config/env";
 import type { IRuleResultDoc } from "../../database/primary/models";
 import { RiskAssessment, RiskLedger, RiskProfile } from "../../database/primary/models";
 import {
+  AlertLevel,
   type AssessCallbackPayload,
+  AssessmentStatus,
   type AssessRequest,
   type AssessResponse,
+  ProfileStatus,
   type RiskProfileData,
   type RuleContext,
   type RuleName,
   type RuleResult,
-
-  AlertLevel,
-  AssessmentStatus,
-  ProfileStatus,
   RuleResultStatus,
   TransactionType,
 } from "../../types/risk";
@@ -165,7 +164,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => { });
+  }).catch(() => {});
 
   sendEmail({
     email: "risk-team@company.com",
@@ -180,7 +179,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 // ─── Context builder ─────────────────────────────────────────────────────────
@@ -321,14 +320,15 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
         detail: result.detail,
         completedAt: new Date(),
       });
-
     }
   }
   // 7. Persist assessment ruleResults
   await RiskAssessment.updateOne({ assessmentId }, { $set: { ruleResults: assessmentResults } });
 
   // 8. Early block: profile blocked or any completed rule triggered
-  const triggeredSync = assessmentResults.filter((r) => r.status === RuleResultStatus.COMPLETED && r.triggered).map((r) => r.rule);
+  const triggeredSync = assessmentResults
+    .filter((r) => r.status === RuleResultStatus.COMPLETED && r.triggered)
+    .map((r) => r.rule);
 
   if ((isProfileBlocked || triggeredSync.length > 0) && !hasPending) {
     const committed = assessmentResults.filter((r) => r.status === RuleResultStatus.COMPLETED);
@@ -431,5 +431,5 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
     triggeredRules,
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
 }
