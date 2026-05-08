@@ -174,7 +174,7 @@ export interface RuleContextBase {
 
 export interface RuleContextDeposit extends RuleContextBase {
   transactionType: TransactionType.DEPOSIT;
-  depositCountry: string
+  depositCountry: string;
 }
 
 export interface RuleContextBuyCrypto extends RuleContextBase {
