@@ -57,7 +57,7 @@ profileRouter.patch("/:userRef/wallet", auth, zValidate("json", profileUpdateSch
   }
   const profile = await Profile.findOneAndUpdate({ userRef }, { $set: { ...c.req.valid("json") } }, { new: true });
   return success(c, {
-    profile: profile?.toObject(),
+    profileId: profile?._id,
   });
 });
 
