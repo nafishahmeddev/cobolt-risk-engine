@@ -8,7 +8,7 @@ import type { AppBindings } from "../../types/api.types";
 import type { AssessRequest } from "../../types/assesment";
 import { success } from "../../utils/response";
 
-const assessRouter = new Hono<AppBindings>();
+const riskRouter = new Hono<AppBindings>();
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -50,10 +50,10 @@ const assessSchema = z.discriminatedUnion("transactionType", [
  * When pending, the final result is POSTed to the provided callbackUrl
  * once the AMLBot poller resolves the check.
  */
-assessRouter.post("/", auth, zValidate("json", assessSchema), async (c) => {
+riskRouter.post("/assess", auth, zValidate("json", assessSchema), async (c) => {
   const data = c.req.valid("json");
   const response = await assessTransaction(data as AssessRequest);
   return success(c, response);
 });
 
-export { assessRouter };
+export { riskRouter };

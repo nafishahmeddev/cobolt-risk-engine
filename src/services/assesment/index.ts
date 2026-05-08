@@ -27,27 +27,9 @@ function generateAssessmentId(): string {
   return `${randomUUID().replace(/-/g, "").slice(0, 18)}`;
 }
 
-async function fetchOrCreateProfile(userRef: string, walletId: string) {
+async function fetchProfile(userRef: string) {
   const existing = await Profile.findOne({ userRef });
-  if (existing) return existing;
-
-  const now = new Date();
-  const profile = await Profile.create({
-    userRef,
-    walletIds: [walletId],
-    status: ProfileStatus.ACTIVE,
-    onboardedAt: now,
-    declaredMonthlyVolume: 0,
-    thirtyDayAverage: 0,
-    crossBorderBaseline: 0,
-    crossBorderCount24h: 0,
-    totalAssessments: 0,
-    lastAssessedAt: now,
-    declaredCountry: "",
-  });
-
-  logger.info({ userRef, walletId }, "Risk profile created");
-  return profile;
+  return existing;
 }
 
 function updateProfileAsync(
@@ -164,7 +146,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => {});
+  }).catch(() => { });
 
   sendEmail({
     email: "risk-team@cobat.io",
@@ -179,7 +161,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 // ─── Context builder ─────────────────────────────────────────────────────────
@@ -230,6 +212,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
 
   const applicableRules = getRulesForType(req.transactionType);
 
+
   // 1. Create in-flight assessment
   await Assesment.create({
     assessmentId,
@@ -256,7 +239,29 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
   });
 
   // 2. Load or create risk profile
-  const profile = await fetchOrCreateProfile(req.userRef, req.walletId);
+  const profile = await fetchProfile(req.userRef);
+  if (!profile) {
+
+    Assesment.updateOne(
+      { assessmentId, "ruleResults.rule": { $in: applicableRules.map(({ name }) => name) } },
+      {
+        $set: {
+          status: AssessmentStatus.FAILED,
+          "ruleResults.$..status": RuleResultStatus.FAILED,
+          "ruleResults.$..triggered": false,
+          "ruleResults.$..alertLevel": AlertLevel.MEDIUM,
+          "ruleResults.$..detail": "User profile not found",
+          "ruleResults.$..completedAt": new Date(),
+        },
+      },
+    );
+
+    return {
+      status: AssessmentStatus.FAILED,
+      assessmentId,
+    };
+  }
+
   const isProfileBlocked = profile.status === ProfileStatus.BLOCKED;
 
   // 3. Build rule context — discriminated by transaction type
@@ -434,5 +439,5 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
     triggeredRules,
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
 }

@@ -46,6 +46,7 @@ const schema = new Schema<IProfile>(
     status: { type: String, enum: Object.values(ProfileStatus), default: ProfileStatus.ACTIVE },
     onboardedAt: { type: Date, required: true },
     declaredMonthlyVolume: { type: Number, default: 0 },
+    declaredCountry: { type: String, default: "" },
     thirtyDayAverage: { type: Number, default: 0 },
     crossBorderBaseline: { type: Number, default: 0 },
     crossBorderCount24h: { type: Number, default: 0 },
