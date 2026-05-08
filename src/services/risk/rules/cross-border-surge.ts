@@ -20,12 +20,22 @@ const SURGE_VOLUME_MULTIPLIER = 1.5;
 export async function crossBorderSurge(ctx: RuleContext): Promise<RuleResult> {
   const since = new Date(Date.now() - WINDOW_24HR_MS);
 
+  if (ctx.transactionType !== TransactionType.DEPOSIT) {
+    return {
+      rule: RuleName.CROSS_BORDER_SURGE,
+      triggered: false,
+      alertLevel: AlertLevel.MEDIUM,
+      detail: `Not a deposit transaction`,
+    };
+  }
+
   //for now we are just checking past histories later we will check in different sources like ( internal services)
   const [stats] = await RiskLedger.aggregate<{ count: number; volume: number }>([
     {
       $match: {
         userRef: ctx.userRef,
         transactionType: TransactionType.DEPOSIT,
+        depositCountry: ctx.depositCountry,
         createdAt: { $gte: since },
       },
     },

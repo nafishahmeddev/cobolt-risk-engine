@@ -40,6 +40,8 @@ export interface IRiskAssessment {
   /** Unified rule results. Each entry is either pending (async) or completed. */
   ruleResults: IRuleResultDoc[];
   createdAt: Date;
+  /** Country of the deposit transaction. Only present for DEPOSIT transactions. */
+  depositCountry: string;
 }
 
 const ruleResultSchema = new Schema<IRuleResultDoc>(
@@ -70,6 +72,7 @@ const schema = new Schema<IRiskAssessment>(
     callbackUrl: { type: String, required: true },
     ruleResults: { type: [ruleResultSchema], default: [] },
     createdAt: { type: Date, required: true },
+    depositCountry: { type: String, default: "" },
   },
   { collection: "risk_assessments", timestamps: false, versionKey: false },
 );

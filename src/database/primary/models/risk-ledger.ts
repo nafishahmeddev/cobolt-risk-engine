@@ -29,6 +29,8 @@ export interface IRiskLedger {
   ruleResults: IRuleResultDoc[];
   /** When the original assess request was received (copied from pending record). */
   createdAt: Date;
+  /** Country of the deposit transaction. Only present for DEPOSIT transactions. */
+  depositCountry: string;
 }
 
 const ruleResultSchema = new Schema<IRuleResultDoc>(
@@ -51,6 +53,7 @@ const schema = new Schema<IRiskLedger>(
     destinationWalletId: { type: String, default: "" },
     amount: { type: Number, required: true },
     currency: { type: String, required: true },
+    depositCountry: { type: String, default: "" },
     transactionType: { type: String, required: true },
     callbackUrl: { type: String, required: true },
     allow: { type: Boolean, required: true },

@@ -106,6 +106,7 @@ export interface AssessRequestBase {
 
 export interface AssessRequestDeposit extends AssessRequestBase {
   transactionType: TransactionType.DEPOSIT;
+  depositCountry: string;
 }
 
 export interface AssessRequestBuyCrypto extends AssessRequestBase {
@@ -173,6 +174,7 @@ export interface RuleContextBase {
 
 export interface RuleContextDeposit extends RuleContextBase {
   transactionType: TransactionType.DEPOSIT;
+  depositCountry: string
 }
 
 export interface RuleContextBuyCrypto extends RuleContextBase {

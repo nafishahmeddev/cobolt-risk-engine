@@ -24,6 +24,7 @@ const assessSchema = z.discriminatedUnion("transactionType", [
   z.object({
     ...commonFields,
     transactionType: z.literal(TransactionType.DEPOSIT),
+    depositCountry: z.string().min(1),
   }),
   z.object({
     ...commonFields,

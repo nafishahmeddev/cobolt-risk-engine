@@ -164,7 +164,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => {});
+  }).catch(() => { });
 
   sendEmail({
     email: "risk-team@company.com",
@@ -179,7 +179,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 // ─── Context builder ─────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ function buildContext(assessmentId: string, req: AssessRequest, profile: RiskPro
 
   switch (req.transactionType) {
     case TransactionType.DEPOSIT:
-      return { ...base, transactionType: TransactionType.DEPOSIT };
+      return { ...base, transactionType: TransactionType.DEPOSIT, depositCountry: req.depositCountry };
     case TransactionType.BUY_CRYPTO:
       return {
         ...base,
@@ -226,6 +226,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
   // Normalise crypto-only fields for the assessment record
   const chain = req.transactionType === TransactionType.DEPOSIT ? "" : req.chain;
   const destinationWalletId = req.transactionType === TransactionType.DEPOSIT ? "" : req.destinationWalletId;
+  const depositCountry = req.transactionType === TransactionType.DEPOSIT ? req.depositCountry : "";
 
   const applicableRules = getRulesForType(req.transactionType);
 
@@ -240,6 +241,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
     amount: req.amount,
     currency: req.currency,
     transactionType: req.transactionType,
+    depositCountry,
     callbackUrl: req.callbackUrl,
     ruleResults: applicableRules.map(({ name }) => ({
       rule: name,
@@ -251,6 +253,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
       startedAt,
     })),
     createdAt: startedAt,
+
   });
 
   // 2. Load or create risk profile
@@ -431,5 +434,5 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
     triggeredRules,
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
 }
