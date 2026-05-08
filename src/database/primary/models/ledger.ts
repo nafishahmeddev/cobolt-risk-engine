@@ -64,4 +64,4 @@ const schema = new Schema<IRiskLedger>(
   { collection: "ledger", timestamps: false, versionKey: false },
 );
 
-export const RiskLedger: Model<IRiskLedger> = conn.model<IRiskLedger>("RiskLedger", schema);
+export const RiskLedger: Model<IRiskLedger> = conn.model<IRiskLedger>("Ledger", schema);
