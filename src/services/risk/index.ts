@@ -163,7 +163,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => { });
+  }).catch(() => {});
 
   sendEmail({
     email: "risk-team@company.com",
@@ -178,7 +178,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 // ─── Context builder ─────────────────────────────────────────────────────────
@@ -457,5 +457,5 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
     triggeredRules,
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
 }
