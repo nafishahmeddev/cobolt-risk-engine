@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { riskRouter } from "./risk";
 import { profileRouter } from "./profile";
+import { riskRouter } from "./risk";
 
 const v1Router = new Hono();
 

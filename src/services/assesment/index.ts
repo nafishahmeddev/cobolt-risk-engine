@@ -146,7 +146,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => { });
+  }).catch(() => {});
 
   sendEmail({
     email: "risk-team@cobat.io",
@@ -161,7 +161,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 // ─── Context builder ─────────────────────────────────────────────────────────
@@ -212,7 +212,6 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
 
   const applicableRules = getRulesForType(req.transactionType);
 
-
   // 1. Create in-flight assessment
   await Assesment.create({
     assessmentId,
@@ -241,7 +240,6 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
   // 2. Load or create risk profile
   const profile = await fetchProfile(req.userRef);
   if (!profile) {
-
     Assesment.updateOne(
       { assessmentId, "ruleResults.rule": { $in: applicableRules.map(({ name }) => name) } },
       {
@@ -439,5 +437,5 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
     triggeredRules,
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
 }
