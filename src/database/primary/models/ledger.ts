@@ -1,7 +1,7 @@
-import { AlertLevel, type RuleName, type TransactionType } from "@app/database/primary";
+import type { RuleName, TransactionType } from "@app/database/primary";
 import { type Model, Schema } from "mongoose";
 import { conn } from "../connection";
-import type { IRuleResultDoc } from "./assesments";
+import { ALERT_LEVELS, type IRuleResultDoc } from "./assesments";
 
 /**
  * Immutable audit record written once when an assessment finalises.
@@ -37,7 +37,7 @@ const ruleResultSchema = new Schema<IRuleResultDoc>(
   {
     rule: { type: String, required: true },
     triggered: { type: Boolean, required: true },
-    alertLevel: { type: String, enum: Object.values(AlertLevel), required: true },
+    alertLevel: { type: String, enum: ALERT_LEVELS, required: true },
     detail: { type: String, default: "" },
   },
   { _id: false },
