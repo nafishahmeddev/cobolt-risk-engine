@@ -79,7 +79,6 @@ export enum RuleResultStatus {
 
 export const RULE_RESULT_STATUSES = Object.values(RuleResultStatus);
 
-
 /** Result produced by a single AML rule evaluation. */
 export interface RuleResult {
   /** The rule that produced this result. */

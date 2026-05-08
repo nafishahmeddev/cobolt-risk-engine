@@ -1,14 +1,25 @@
 import { randomUUID } from "node:crypto";
+import {
+  AlertLevel,
+  Assesment,
+  AssessmentStatus,
+  type IProfile,
+  type IRuleResultDoc,
+  Profile,
+  ProfileStatus,
+  RiskLedger,
+  type RuleName,
+  type RuleResult,
+  RuleResultStatus,
+  TransactionType,
+} from "@app/database/primary";
+import type { AssessCallbackPayload, AssessRequest, AssessResponse, RuleContext } from "@app/types/assesment";
 import { EnvConfig } from "../../config/env";
 import { logger } from "../../utils/logger";
 import { sendAssessmentCallback } from "../callback";
 import { sendEmail } from "../email";
 import { sendSlackMessage } from "../slack";
 import { evaluateAllRules, getRulesForType } from "./rules";
-import { RuleResultStatus, AssessmentStatus, IRuleResultDoc, RuleName, Assesment, TransactionType, AlertLevel, RuleResult, ProfileStatus } from "@app/database/primary";
-import { IProfile, Profile } from "@app/database/primary";
-import { AssessRequest, RuleContext, AssessResponse, AssessCallbackPayload } from "@app/types/assesment";
-import { RiskLedger } from "@app/database/primary";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -153,7 +164,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => { });
+  }).catch(() => {});
 
   sendEmail({
     email: "risk-team@cobat.io",
@@ -168,7 +179,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 // ─── Context builder ─────────────────────────────────────────────────────────
@@ -423,5 +434,5 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
     triggeredRules,
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
 }

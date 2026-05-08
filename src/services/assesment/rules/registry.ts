@@ -1,4 +1,4 @@
-import { RuleResult, RuleName, TransactionType } from "@app/database/primary";
+import type { RuleName, RuleResult, TransactionType } from "@app/database/primary";
 import type { RuleContext } from "../../../types/assesment";
 
 export type RuleFn = (ctx: RuleContext) => Promise<RuleResult>;

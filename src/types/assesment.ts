@@ -1,5 +1,4 @@
-import { TransactionType, AssessmentStatus, RuleName } from "@app/database/primary";
-import type { IProfile } from "@app/database/primary";
+import type { AssessmentStatus, IProfile, RuleName, TransactionType } from "@app/database/primary";
 
 /** Payload sent by the integrator to request a risk assessment. */
 export interface AssessRequestBase {
@@ -57,8 +56,6 @@ export interface AssessCallbackPayload {
   triggeredRules: RuleName[];
 }
 
-
-
 /** Shared input passed to every rule function. Discriminated by transactionType. */
 export interface RuleContextBase {
   assessmentId: string;
@@ -89,4 +86,3 @@ export interface RuleContextWithdrawCrypto extends RuleContextBase {
 }
 
 export type RuleContext = RuleContextDeposit | RuleContextBuyCrypto | RuleContextWithdrawCrypto;
-

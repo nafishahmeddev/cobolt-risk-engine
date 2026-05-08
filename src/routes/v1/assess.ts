@@ -1,17 +1,16 @@
+import { TransactionType } from "@app/database/primary";
 import { Hono } from "hono";
 import { z } from "zod";
 import { auth } from "../../middleware/auth";
 import { zValidate } from "../../middleware/validator";
 import { assessTransaction } from "../../services/assesment";
 import type { AppBindings } from "../../types/api.types";
-import { type AssessRequest } from "../../types/assesment";
+import type { AssessRequest } from "../../types/assesment";
 import { success } from "../../utils/response";
-import { TransactionType } from "@app/database/primary";
 
 const assessRouter = new Hono<AppBindings>();
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
-
 
 const commonFields = {
   userRef: z.string().min(1),
@@ -56,6 +55,5 @@ assessRouter.post("/", auth, zValidate("json", assessSchema), async (c) => {
   const response = await assessTransaction(data as AssessRequest);
   return success(c, response);
 });
-
 
 export { assessRouter };

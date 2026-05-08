@@ -1,7 +1,7 @@
+import { AlertLevel, type RuleName, type TransactionType } from "@app/database/primary";
 import { type Model, Schema } from "mongoose";
 import { conn } from "../connection";
 import type { IRuleResultDoc } from "./assesments";
-import { AlertLevel, type RuleName, type TransactionType } from "@app/database/primary";
 
 /**
  * Immutable audit record written once when an assessment finalises.

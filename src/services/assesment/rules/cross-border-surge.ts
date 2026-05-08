@@ -1,6 +1,6 @@
-import { AlertLevel, RuleName, RuleResult, TransactionType } from "@app/database/primary";
+import { AlertLevel, RuleName, type RuleResult, TransactionType } from "@app/database/primary";
+import type { RuleContext } from "@app/types/assesment";
 import { RiskLedger } from "../../../database/primary/models/ledger";
-import { RuleContext } from "@app/types/assesment";
 
 const WINDOW_24HR_MS = 24 * 60 * 60 * 1000;
 
