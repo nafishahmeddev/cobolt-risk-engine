@@ -20,6 +20,7 @@ const SURGE_VOLUME_MULTIPLIER = 1.5;
 export async function crossBorderSurge(ctx: RuleContext): Promise<RuleResult> {
   const since = new Date(Date.now() - WINDOW_24HR_MS);
 
+  //for now we are just checking past histories later we will check in different sources like ( internal services)
   const [stats] = await RiskLedger.aggregate<{ count: number; volume: number }>([
     {
       $match: {
