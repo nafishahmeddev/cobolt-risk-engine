@@ -5,9 +5,9 @@ import {
   AssessmentStatus,
   type IProfile,
   type IRuleResultDoc,
+  Ledger,
   Profile,
   ProfileStatus,
-  Ledger,
   type RuleName,
   type RuleResult,
   RuleResultStatus,
@@ -138,7 +138,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => { });
+  }).catch(() => {});
 
   sendEmail({
     email: "risk-team@cobat.io",
@@ -153,7 +153,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 // ─── Context builder ─────────────────────────────────────────────────────────
@@ -423,5 +423,5 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
     triggeredRules,
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
 }
