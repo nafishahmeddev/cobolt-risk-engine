@@ -1,4 +1,4 @@
-import type { IDeferredRule } from "../database/primary/models";
+import type { IRuleResultDoc } from "../database/primary/models";
 import { RiskAssessment, RuleExecution } from "../database/primary/models";
 import { finalizeAssessment } from "../services/risk";
 import { getDeferredResolver } from "../services/risk/rules/registry";
@@ -6,8 +6,8 @@ import { logger } from "../utils/logger";
 
 const BATCH_LIMIT = 50;
 
-async function resolveDeferredRule(assessmentId: string, deferred: IDeferredRule): Promise<boolean> {
-  const resolver = getDeferredResolver(deferred.rule);
+async function resolvePendingRule(assessmentId: string, ruleResult: IRuleResultDoc): Promise<boolean> {
+  const resolver = getDeferredResolver(ruleResult.rule);
 
   if (!resolver) {
     // No resolver registered — rule resolves externally (webhook/callback).
@@ -15,24 +15,29 @@ async function resolveDeferredRule(assessmentId: string, deferred: IDeferredRule
     return false;
   }
 
-  const outcome = await resolver(deferred.metadata);
+  const outcome = await resolver(ruleResult.metadata ?? {});
 
   if (!outcome.completed) {
     return false;
   }
 
-  // Remove from deferredRules, add result to ruleResults
+  // Update the rule result entry in-place: pending → completed
   await RiskAssessment.updateOne(
-    { assessmentId },
+    { assessmentId, "ruleResults.rule": ruleResult.rule, "ruleResults.status": "pending" },
     {
-      $pull: { deferredRules: { rule: deferred.rule } },
-      $push: { ruleResults: outcome.result },
+      $set: {
+        "ruleResults.$.status": "completed",
+        "ruleResults.$.triggered": outcome.result.triggered,
+        "ruleResults.$.alertLevel": outcome.result.alertLevel,
+        "ruleResults.$.detail": outcome.result.detail,
+      },
+      $unset: { "ruleResults.$.metadata": "" },
     },
   );
 
   // Update RuleExecution record
   await RuleExecution.updateOne(
-    { executionId: `${assessmentId}_${deferred.rule}` },
+    { executionId: `${assessmentId}_${ruleResult.rule}` },
     {
       $set: {
         state: "completed",
@@ -48,7 +53,7 @@ async function resolveDeferredRule(assessmentId: string, deferred: IDeferredRule
 }
 
 export async function tick(): Promise<void> {
-  const pending = await RiskAssessment.find({ "deferredRules.0": { $exists: true } }, null, {
+  const pending = await RiskAssessment.find({ "ruleResults.status": "pending" }, null, {
     sort: { createdAt: 1 },
     limit: BATCH_LIMIT,
   }).lean();
@@ -58,13 +63,13 @@ export async function tick(): Promise<void> {
   logger.info({ count: pending.length }, "process-deferred: processing pending assessments");
 
   for (const assessment of pending) {
-    const deferredRules = assessment.deferredRules as IDeferredRule[];
+    const pendingRules = (assessment.ruleResults as IRuleResultDoc[]).filter((r) => r.status === "pending");
 
     try {
       let allResolved = true;
 
-      for (const deferred of deferredRules) {
-        const resolved = await resolveDeferredRule(assessment.assessmentId, deferred);
+      for (const ruleResult of pendingRules) {
+        const resolved = await resolvePendingRule(assessment.assessmentId, ruleResult);
         if (!resolved) allResolved = false;
       }
 
