@@ -32,12 +32,7 @@ async function fetchProfile(userRef: string) {
   return existing;
 }
 
-function updateProfileAsync(
-  userRef: string,
-  walletId: string,
-  amount: number,
-  oldAverage: number,
-): void {
+function updateProfileAsync(userRef: string, walletId: string, amount: number, oldAverage: number): void {
   const newAverage = oldAverage === 0 ? amount : Math.round(oldAverage * 0.97 + amount * 0.03);
 
   Profile.updateOne(
@@ -143,7 +138,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => { });
+  }).catch(() => {});
 
   sendEmail({
     email: "risk-team@cobat.io",
@@ -158,7 +153,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => { });
+  }).catch(() => {});
 }
 
 // ─── Context builder ─────────────────────────────────────────────────────────
@@ -402,12 +397,7 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
   // Load profile for accurate wallet list and rolling average
   const profile = await Profile.findOne({ userRef: assessment.userRef });
   if (profile) {
-    updateProfileAsync(
-      assessment.userRef,
-      assessment.walletId,
-      assessment.amount,
-      profile.thirtyDayAverage,
-    );
+    updateProfileAsync(assessment.userRef, assessment.walletId, assessment.amount, profile.thirtyDayAverage);
   }
 
   if (!allow) {
@@ -433,5 +423,5 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
     triggeredRules,
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
 }
