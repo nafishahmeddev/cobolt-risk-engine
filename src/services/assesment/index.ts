@@ -36,20 +36,17 @@ function updateProfileAsync(
   userRef: string,
   walletId: string,
   amount: number,
-  existingWalletIds: string[],
   oldAverage: number,
 ): void {
-  const walletIds = existingWalletIds.includes(walletId) ? existingWalletIds : [...existingWalletIds, walletId];
-
   const newAverage = oldAverage === 0 ? amount : Math.round(oldAverage * 0.97 + amount * 0.03);
 
   Profile.updateOne(
     { userRef },
     {
       $set: {
-        walletIds,
         lastAssessedAt: new Date(),
         thirtyDayAverage: newAverage,
+        $addToSet: { walletIds: walletId },
       },
       $inc: { totalAssessments: 1 },
     },
@@ -146,7 +143,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
         ],
       },
     ],
-  }).catch(() => {});
+  }).catch(() => { });
 
   sendEmail({
     email: "risk-team@cobat.io",
@@ -161,7 +158,7 @@ function dispatchNotifications(payload: NotificationPayload): void {
       `Decision         : ${label}`,
       `Rules            : ${triggeredRules.join(", ") || "None"}`,
     ].join("\n"),
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 // ─── Context builder ─────────────────────────────────────────────────────────
@@ -339,7 +336,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
   if ((isProfileBlocked || triggeredSync.length > 0) && !hasPending) {
     const committed = assessmentResults.filter((r) => r.status === RuleResultStatus.COMPLETED);
     await commitToLedger(assessmentId, committed, triggeredSync, false);
-    updateProfileAsync(req.userRef, req.walletId, req.amount, profile.walletIds, profile.thirtyDayAverage);
+    updateProfileAsync(req.userRef, req.walletId, req.amount, profile.thirtyDayAverage);
     dispatchNotifications({
       assessmentId,
       userRef: req.userRef,
@@ -374,7 +371,7 @@ export async function assessTransaction(req: AssessRequest): Promise<AssessRespo
 
   // 10. All clear: no triggers, profile active, all rules completed
   await commitToLedger(assessmentId, assessmentResults, [], true);
-  updateProfileAsync(req.userRef, req.walletId, req.amount, profile.walletIds, profile.thirtyDayAverage);
+  updateProfileAsync(req.userRef, req.walletId, req.amount, profile.thirtyDayAverage);
 
   logger.info({ assessmentId }, "Assessment finalised — allowed");
   return {
@@ -409,7 +406,6 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
       assessment.userRef,
       assessment.walletId,
       assessment.amount,
-      profile.walletIds,
       profile.thirtyDayAverage,
     );
   }
@@ -437,5 +433,5 @@ export async function finalizeAssessment(assessmentId: string): Promise<void> {
     triggeredRules,
   };
 
-  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => {});
+  sendAssessmentCallback(assessment.callbackUrl, callbackPayload).catch(() => { });
 }
